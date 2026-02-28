@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Automotive 4S Shop Customer Profile Schema",
+  "description": "Flexible customer profile schema for automotive dealerships (Sales, Service, Spare parts, Survey). Designed for gap analysis and A/B/C/D classification.",
+  "type": "object",
+  "properties": {
+    "budget": {
+      "type": "object",
+      "title": "Budget Information",
+      "description": "Customer's purchasing power and budget constraints",
+      "properties": {
+        "range": {
+          "type": "string",
+          "enum": ["<200k", "200k-300k", "300k-500k", "500k-800k", ">800k"],
+          "description": "Budget range in CNY"
+        },
+        "confirmed": {
+          "type": "boolean",
+          "description": "Whether budget has been explicitly confirmed by customer"
+        },
+        "financing_needed": {
+          "type": "boolean",
+          "description": "Whether customer requires auto loan financing"
+        }
+      },
+      "required": ["range"],
+      "display": {
+        "order": 1,
+        "icon": "💰",
+        "critical": true
+      }
+    },
+    "decision_maker": {
+      "type": "object",
+      "title": "Decision Maker",
+      "description": "Who makes the final purchasing decision",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["self", "spouse", "family_joint", "company_fleet"],
+          "description": "Decision-making structure"
+        },
+        "identified": {
+          "type": "boolean",
+          "description": "Whether we've identified and contacted the economic buyer"
+        },
+        "influencers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Other people influencing the decision (e.g., spouse, parents)"
+        }
+      },
+      "required": ["role"],
+      "display": {
+        "order": 2,
+        "icon": "👤",
+        "critical": true
+      }
+    },
+    "timeframe": {
+      "type": "object",
+      "title": "Purchase Timeframe",
+      "description": "When the customer plans to buy",
+      "properties": {
+        "urgency": {
+          "type": "string",
+          "enum": ["immediate", "within_1_month", "1_3_months", "3_6_months", "exploring"],
+          "description": "Purchase urgency level"
+        },
+        "trigger_event": {
+          "type": "string",
+          "description": "Specific event driving the purchase (e.g., 'current lease expires next month', 'new baby arriving')"
+        }
+      },
+      "required": ["urgency"],
+      "display": {
+        "order": 3,
+        "icon": "⏰",
+        "critical": true
+      }
+    },
+    "vehicle_model": {
+      "type": "object",
+      "title": "Vehicle Preferences",
+      "description": "Target vehicle model and configuration",
+      "properties": {
+        "brand": {
+          "type": "string",
+          "description": "Preferred brand (e.g., BMW, Mercedes, Tesla)"
+        },
+        "model": {
+          "type": "string",
+          "description": "Specific model (e.g., BMW X5, Model Y)"
+        },
+        "configuration": {
+          "type": "string",
+          "description": "Trim level or configuration preferences"
+        },
+        "color_preference": {
+          "type": "string",
+          "description": "Preferred exterior color"
+        },
+        "must_have_features": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Non-negotiable features (e.g., 'panoramic sunroof', 'adaptive cruise control')"
+        }
+      },
+      "required": ["brand"],
+      "display": {
+        "order": 4,
+        "icon": "🚗"
+      }
+    },
+    "trade_in_info": {
+      "type": "object",
+      "title": "Trade-In Information",
+      "description": "Current vehicle trade-in details",
+      "properties": {
+        "has_trade_in": {
+          "type": "boolean",
+          "description": "Whether customer has a vehicle to trade in"
+        },
+        "current_vehicle": {
+          "type": "string",
+          "description": "Make, model, and year of current vehicle"
+        },
+        "estimated_value": {
+          "type": "number",
+          "description": "Estimated trade-in value in CNY"
+        },
+        "outstanding_loan": {
+          "type": "boolean",
+          "description": "Whether there's an outstanding loan on current vehicle"
+        }
+      },
+      "display": {
+        "order": 5,
+        "icon": "🔄"
+      }
+    },
+    "competitors": {
+      "type": "object",
+      "title": "Competitive Landscape",
+      "description": "Other brands/dealers the customer is considering",
+      "properties": {
+        "brands_considered": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Competing brands under consideration"
+        },
+        "visited_dealers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Other dealerships already visited"
+        },
+        "main_objection": {
+          "type": "string",
+          "description": "Primary reason for hesitation (e.g., 'price too high', 'waiting for new model release')"
+        }
+      },
+      "display": {
+        "order": 6,
+        "icon": "⚔️"
+      }
+    },
+    "usage_scenario": {
+      "type": "object",
+      "title": "Usage Scenario",
+      "description": "How the customer plans to use the vehicle",
+      "properties": {
+        "primary_use": {
+          "type": "string",
+          "enum": ["daily_commute", "family_travel", "business", "weekend_leisure"],
+          "description": "Main usage pattern"
+        },
+        "annual_mileage": {
+          "type": "string",
+          "enum": ["<10k", "10k-20k", "20k-30k", ">30k"],
+          "description": "Expected annual mileage in kilometers"
+        },
+        "passengers": {
+          "type": "integer",
+          "description": "Typical number of passengers"
+        }
+      },
+      "display": {
+        "order": 7,
+        "icon": "🛣️"
+      }
+    },
+    "contact_preferences": {
+      "type": "object",
+      "title": "Contact Preferences",
+      "description": "How and when to reach the customer",
+      "properties": {
+        "preferred_channel": {
+          "type": "string",
+          "enum": ["phone", "wechat", "email", "in_person"],
+          "description": "Preferred communication channel"
+        },
+        "best_time": {
+          "type": "string",
+          "description": "Best time to contact (e.g., 'weekday evenings', 'Saturday mornings')"
+        },
+        "wechat_id": {
+          "type": "string",
+          "description": "WeChat ID if applicable"
+        }
+      },
+      "display": {
+        "order": 8,
+        "icon": "📞"
+      }
+    }
+  },
+  "required": ["budget", "decision_maker", "timeframe", "vehicle_model"],
+  "additionalProperties": true,
+  "metadata": {
+    "version": "1.0.0",
+    "industry": "automotive_4s",
+    "locale": "zh-CN",
+    "critical_fields": ["budget.confirmed", "decision_maker.identified", "timeframe.urgency"],
+    "classification_rules": {
+      "A": "budget.confirmed=true AND decision_maker.identified=true AND timeframe.urgency IN ['immediate', 'within_1_month']",
+      "B": "High intent but blocked by competitors.main_objection or budget not confirmed",
+      "C": "timeframe.urgency IN ['3_6_months', 'exploring'] OR budget.range not aligned",
+      "D": "Does not fit profile or explicitly rejected"
+    }
+  }
+}
