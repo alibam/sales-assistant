@@ -28,17 +28,34 @@ Multi-tenant B2B SaaS application for intelligent sales lifecycle management wit
 
 ---
 
-## Milestone 2: Core AI Pipeline (Gap Analysis Engine)
+## Milestone 2: Core AI Pipeline (Gap Analysis Engine) ✅
 **Goal:** Build the Gap Analysis Engine using Vercel AI SDK with structured output and tool calling.
 
-- [ ] Set up Vercel AI SDK Core with TypeScript types
-- [ ] Implement profile_schema.json parser in lib/config/
-- [ ] Create Gap Analysis Engine with generateObject for slot filling
+- [x] Set up Vercel AI SDK Core with TypeScript types
+- [x] Implement profile_schema.json parser in lib/config/
+- [x] Create Gap Analysis Engine with generateObject for slot filling
+- [x] Implement entity extraction tools with zod schemas
+- [x] Build profile gap detection and follow-up prompt generation
+- [x] **Provider Architecture Refactoring** - Environment-driven AI provider
+- [x] Create API route for gap analysis endpoint
 - [ ] Build Micro-Gap mode (continuous chat with immediate follow-up)
 - [ ] Build Macro-Gap mode (long transcript import with comprehensive checklist)
-- [ ] Implement entity extraction tools with zod schemas
-- [ ] Create API route for gap analysis endpoint
 - [ ] Add streaming support for real-time UI updates
+
+**Files Created (M2 Complete):**
+- `lib/ai/types.ts` - 完整类型定义（CustomerProfile, ProfileGap, GapAnalysisResult）
+- `lib/ai/gap-analysis.ts` - 核心引擎（analyzeCustomerInput, findProfileGaps, generateFollowUpPrompt, runGapAnalysis）
+- `lib/ai/provider.ts` - **环境驱动的 AI Provider 配置（@ai-sdk/openai + createOpenAI）**
+- `lib/config/profile-schema-loader.ts` - Schema 加载器（zod 验证 + 缓存）
+- `app/api/gap-analysis/route.ts` - **Next.js API Route（POST + GET）**
+- `.env.example` - **AI provider 环境变量模板**
+- `scripts/demo-gap-analysis.ts` - 演示脚本
+
+**Provider Architecture:**
+- 使用 `@ai-sdk/openai` 替代 `@ai-sdk/anthropic`
+- 通过 `createOpenAI` 支持任意 OpenAI-compatible API
+- 环境变量驱动：`OPENAI_BASE_URL`, `OPENAI_API_KEY`, `AI_MODEL_NAME`
+- 零硬编码，支持开发环境（第三方 API）和生产环境（本地 Qwen）无缝切换
 
 ---
 
@@ -87,8 +104,9 @@ Multi-tenant B2B SaaS application for intelligent sales lifecycle management wit
 ---
 
 ## Current Status
-**Active Milestone:** Milestone 2 (Core AI Pipeline)  
-**Last Updated:** 2026-02-28 19:40  
-**Milestone 1 Completed:** ✅ 数据基石与多租户 Schema 已建立
+**Active Milestone:** Milestone 2 完成 ✅  
+**Last Updated:** 2026-03-01 09:10  
+**Milestone 1 Completed:** ✅ 数据基石与多租户 Schema  
+**Milestone 2 Completed:** ✅ Gap Analysis Engine + Provider 架构重构
 
-**Next Action:** 开始 Milestone 2 - Gap Analysis Engine 开发
+**Next Action:** 准备推送代码，或进入 Milestone 3（State Machine）

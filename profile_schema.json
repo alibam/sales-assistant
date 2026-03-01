@@ -1,239 +1,98 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Automotive 4S Shop Customer Profile Schema",
-  "description": "Flexible customer profile schema for automotive dealerships (Sales, Service, Spare parts, Survey). Designed for gap analysis and A/B/C/D classification.",
+  "title": "Automotive 4S Advanced Customer Profile Schema",
+  "description": "深度定制的汽车4S店客户画像，用于驱动AI缺口分析（Gap Analysis）和 A/B/C/D 意向度流转。",
   "type": "object",
   "properties": {
-    "budget": {
+    "scene": {
       "type": "object",
-      "title": "Budget Information",
-      "description": "Customer's purchasing power and budget constraints",
+      "title": "① 需求与场景",
       "properties": {
-        "range": {
-          "type": "string",
-          "enum": ["<200k", "200k-300k", "300k-500k", "500k-800k", ">800k"],
-          "description": "Budget range in CNY"
-        },
-        "confirmed": {
-          "type": "boolean",
-          "description": "Whether budget has been explicitly confirmed by customer"
-        },
-        "financing_needed": {
-          "type": "boolean",
-          "description": "Whether customer requires auto loan financing"
-        }
-      },
-      "required": ["range"],
-      "display": {
-        "order": 1,
-        "icon": "💰",
-        "critical": true
+        "usage_scenario": { "type": "string", "description": "用车场景（如：通勤/家庭/二胎/长途/商务/网约/露营等）" },
+        "key_motives": { "type": "array", "items": { "type": "string" }, "description": "关键购车动机（如：空间、安全、保值、省油/电、智能化、品牌面子）" },
+        "must_haves": { "type": "array", "items": { "type": "string" }, "description": "客户的必须项（绝对不可妥协的配置或需求）" },
+        "compromisable": { "type": "array", "items": { "type": "string" }, "description": "客户的可妥协项（可以退让的需求）" }
       }
     },
-    "decision_maker": {
+    "preference": {
       "type": "object",
-      "title": "Decision Maker",
-      "description": "Who makes the final purchasing decision",
+      "title": "② 车型与偏好",
       "properties": {
-        "role": {
-          "type": "string",
-          "enum": ["self", "spouse", "family_joint", "company_fleet"],
-          "description": "Decision-making structure"
-        },
-        "identified": {
-          "type": "boolean",
-          "description": "Whether we've identified and contacted the economic buyer"
-        },
-        "influencers": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Other people influencing the decision (e.g., spouse, parents)"
-        }
+        "intent_model": { "type": "string", "description": "意向车型/级别/能源类型" },
+        "config_preference": { "type": "array", "items": { "type": "string" }, "description": "配置偏好（如：智能驾驶/座椅/音响/四驱/续航/快充等）" },
+        "color_and_inventory": { "type": "string", "description": "颜色偏好与现车偏好" }
       },
-      "required": ["role"],
-      "display": {
-        "order": 2,
-        "icon": "👤",
-        "critical": true
+      "required": ["intent_model"]
+    },
+    "budget_payment": {
+      "type": "object",
+      "title": "③ 预算与付款",
+      "properties": {
+        "budget_limit": { "type": "string", "description": "预算口径（落地价上限 / 月供上限 / 首付上限）" },
+        "payment_method": { "type": "string", "enum": ["全款", "贷款", "分期", "融资租赁", "未知"], "description": "付款方式倾向" },
+        "price_sensitivity": { "type": "string", "enum": ["高", "中", "低", "未知"], "description": "价格敏感度，用于生成话术策略" }
+      },
+      "required": ["budget_limit"]
+    },
+    "timing": {
+      "type": "object",
+      "title": "④ 时间窗口",
+      "properties": {
+        "delivery_timeline": { "type": "string", "enum": ["3天", "1周", "本月", "不急", "未知"], "description": "计划提车时间" },
+        "trigger_event": { "type": "string", "description": "触发购车的事件（如：结婚/新生儿/搬家/换工作/限行/政策到期）" }
+      },
+      "required": ["delivery_timeline"]
+    },
+    "decision_unit": {
+      "type": "object",
+      "title": "⑤ 决策单元",
+      "properties": {
+        "decision_maker_involved": { "type": "boolean", "description": "最终拍板人是否已经参与沟通？" },
+        "payer": { "type": "string", "description": "实际出钱人是谁？（如：自己、父母、配偶、公司）" },
+        "family_visit_required": { "type": "boolean", "description": "是否需要配偶/父母后续到店看车？" },
+        "objection_source": { "type": "string", "description": "当前的反对点来自谁？（如果没有则留空）" }
+      },
+      "required": ["decision_maker_involved", "payer"]
+    },
+    "competitor": {
+      "type": "object",
+      "title": "⑥ 竞品与对比",
+      "properties": {
+        "competing_models": { "type": "array", "items": { "type": "string" }, "description": "对比的竞品车型（未知必须标明‘未知’）" },
+        "has_quote": { "type": "boolean", "description": "是否已经在竞品处拿到报价或优惠点？" },
+        "main_conflict": { "type": "string", "enum": ["价格", "配置", "品牌", "保值", "续航", "空间", "无", "未知"], "description": "客户最纠结的对比点" }
       }
     },
-    "timeframe": {
+    "deal_factors": {
       "type": "object",
-      "title": "Purchase Timeframe",
-      "description": "When the customer plans to buy",
+      "title": "⑦ 交易要素",
       "properties": {
-        "urgency": {
-          "type": "string",
-          "enum": ["immediate", "within_1_month", "1_3_months", "3_6_months", "exploring"],
-          "description": "Purchase urgency level"
-        },
-        "trigger_event": {
-          "type": "string",
-          "description": "Specific event driving the purchase (e.g., 'current lease expires next month', 'new baby arriving')"
-        }
-      },
-      "required": ["urgency"],
-      "display": {
-        "order": 3,
-        "icon": "⏰",
-        "critical": true
+        "trade_in_info": { "type": "string", "description": "置换情况：有无旧车及详情（品牌/年限/里程/是否有贷）" },
+        "finance_info": { "type": "string", "description": "金融情况：月供接受度、资料准备度、征信顾虑" },
+        "delivery_acceptance": { "type": "string", "description": "对现车或排产等待期的接受度" }
       }
     },
-    "vehicle_model": {
+    "blockers": {
       "type": "object",
-      "title": "Vehicle Preferences",
-      "description": "Target vehicle model and configuration",
+      "title": "⑧ 风险与阻塞",
       "properties": {
-        "brand": {
-          "type": "string",
-          "description": "Preferred brand (e.g., BMW, Mercedes, Tesla)"
-        },
-        "model": {
-          "type": "string",
-          "description": "Specific model (e.g., BMW X5, Model Y)"
-        },
-        "configuration": {
-          "type": "string",
-          "description": "Trim level or configuration preferences"
-        },
-        "color_preference": {
-          "type": "string",
-          "description": "Preferred exterior color"
-        },
-        "must_have_features": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Non-negotiable features (e.g., 'panoramic sunroof', 'adaptive cruise control')"
-        }
-      },
-      "required": ["brand"],
-      "display": {
-        "order": 4,
-        "icon": "🚗"
-      }
-    },
-    "trade_in_info": {
-      "type": "object",
-      "title": "Trade-In Information",
-      "description": "Current vehicle trade-in details",
-      "properties": {
-        "has_trade_in": {
-          "type": "boolean",
-          "description": "Whether customer has a vehicle to trade in"
-        },
-        "current_vehicle": {
-          "type": "string",
-          "description": "Make, model, and year of current vehicle"
-        },
-        "estimated_value": {
-          "type": "number",
-          "description": "Estimated trade-in value in CNY"
-        },
-        "outstanding_loan": {
-          "type": "boolean",
-          "description": "Whether there's an outstanding loan on current vehicle"
-        }
-      },
-      "display": {
-        "order": 5,
-        "icon": "🔄"
-      }
-    },
-    "competitors": {
-      "type": "object",
-      "title": "Competitive Landscape",
-      "description": "Other brands/dealers the customer is considering",
-      "properties": {
-        "brands_considered": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Competing brands under consideration"
-        },
-        "visited_dealers": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Other dealerships already visited"
-        },
-        "main_objection": {
-          "type": "string",
-          "description": "Primary reason for hesitation (e.g., 'price too high', 'waiting for new model release')"
-        }
-      },
-      "display": {
-        "order": 6,
-        "icon": "⚔️"
-      }
-    },
-    "usage_scenario": {
-      "type": "object",
-      "title": "Usage Scenario",
-      "description": "How the customer plans to use the vehicle",
-      "properties": {
-        "primary_use": {
-          "type": "string",
-          "enum": ["daily_commute", "family_travel", "business", "weekend_leisure"],
-          "description": "Main usage pattern"
-        },
-        "annual_mileage": {
-          "type": "string",
-          "enum": ["<10k", "10k-20k", "20k-30k", ">30k"],
-          "description": "Expected annual mileage in kilometers"
-        },
-        "passengers": {
-          "type": "integer",
-          "description": "Typical number of passengers"
-        }
-      },
-      "display": {
-        "order": 7,
-        "icon": "🛣️"
-      }
-    },
-    "contact_preferences": {
-      "type": "object",
-      "title": "Contact Preferences",
-      "description": "How and when to reach the customer",
-      "properties": {
-        "preferred_channel": {
-          "type": "string",
-          "enum": ["phone", "wechat", "email", "in_person"],
-          "description": "Preferred communication channel"
-        },
-        "best_time": {
-          "type": "string",
-          "description": "Best time to contact (e.g., 'weekday evenings', 'Saturday mornings')"
-        },
-        "wechat_id": {
-          "type": "string",
-          "description": "WeChat ID if applicable"
-        }
-      },
-      "display": {
-        "order": 8,
-        "icon": "📞"
+        "main_blocker": { "type": "string", "enum": ["价格", "竞品", "决策人", "金融", "置换", "现车", "信任", "时间", "无"], "description": "当前促单的最大卡点" },
+        "intensity": { "type": "string", "enum": ["高", "中", "低", "无"], "description": "卡点强度" },
+        "needs_manager": { "type": "boolean", "description": "是否需要销售经理或店总介入协助？" }
       }
     }
   },
-  "required": ["budget", "decision_maker", "timeframe", "vehicle_model"],
+  "required": ["preference", "budget_payment", "timing", "decision_unit"],
   "additionalProperties": true,
   "metadata": {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "industry": "automotive_4s",
     "locale": "zh-CN",
-    "critical_fields": ["budget.confirmed", "decision_maker.identified", "timeframe.urgency"],
     "classification_rules": {
-      "A": "budget.confirmed=true AND decision_maker.identified=true AND timeframe.urgency IN ['immediate', 'within_1_month']",
-      "B": "High intent but blocked by competitors.main_objection or budget not confirmed",
-      "C": "timeframe.urgency IN ['3_6_months', 'exploring'] OR budget.range not aligned",
-      "D": "Does not fit profile or explicitly rejected"
+      "A": "直接客户，有明确购买意向，立刻买单。条件：timing.delivery_timeline 在 '1周' 内，且 decision_unit.decision_maker_involved=true，且 blockers.intensity='低/无'",
+      "B": "准客户，有70%以上购买意向，还在犹豫，考虑性价比，需要引导。条件：budget_payment 明确但 competitor.main_conflict 存在 或 blockers 存在",
+      "C": "有意向客户，意向不强烈，多种选择。条件：timing.delivery_timeline='不急' 或 decision_unit.payer 未明确",
+      "D": "普通客户/流失客户。条件：预算完全不匹配或明确拒绝"
     }
   }
 }
