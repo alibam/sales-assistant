@@ -49,10 +49,8 @@ const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
  * - 403: { error: "Mock login disabled in production" }
  */
 export async function POST(request: NextRequest) {
-  // 生产环境强制禁止 mock 登录（严格判定：仅 'true' 允许）
-  const isMockAuthEnabled = process.env.ENABLE_MOCK_AUTH === 'true';
-  
-  if (process.env.NODE_ENV === 'production' && !isMockAuthEnabled) {
+  // 生产环境绝对禁止 mock 登录（无任何例外）
+  if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
       { error: 'Forbidden', message: 'Mock login is disabled in production' },
       { status: 403 }
