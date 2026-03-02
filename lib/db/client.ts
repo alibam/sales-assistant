@@ -4,7 +4,7 @@
  * Single source of truth for Prisma client instance.
  * All database operations MUST import from this file.
  */
-import { PrismaClient } from '../../generated/prisma';
+import { PrismaClient } from '@prisma/client';
 
 // Singleton pattern to prevent multiple instances
 const globalForPrisma = globalThis as unknown as {
@@ -18,5 +18,5 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Re-export types for convenience
-export { CustomerStatus, Prisma } from '../../generated/prisma';
-export type { Customer, Tenant, SalesStateHistory } from '../../generated/prisma';
+export { CustomerStatus, Prisma } from '@prisma/client';
+export type { Customer, Tenant, SalesStateHistory } from '@prisma/client';

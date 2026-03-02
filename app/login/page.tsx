@@ -9,7 +9,7 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const DEMO_USERS = [
@@ -18,7 +18,7 @@ const DEMO_USERS = [
   { username: 'admin-user', label: 'Demo Admin', role: 'TENANT_ADMIN' },
 ];
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get('redirect') || '/dashboard';
@@ -145,5 +145,14 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Next.js 15: useSearchParams must be wrapped in Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

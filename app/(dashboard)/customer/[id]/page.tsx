@@ -23,9 +23,9 @@ import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 /**
@@ -59,7 +59,8 @@ async function getCustomer(id: string, tenantId: string) {
  * 客户详情页面
  */
 export default async function CustomerPage({ params }: PageProps) {
-  const { id } = params;
+  // Next.js 15: params 是 Promise，需要 await
+  const { id } = await params;
   
   // ✅ M5: 从 session 动态获取 tenantId，确保租户隔离
   const session = await requireAuth();

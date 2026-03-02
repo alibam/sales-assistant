@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
     // 设置 Cookie（HTTP-only, Secure in production）
     response.cookies.set('session_token', sessionToken, {
       httpOnly: true,
+      // @ts-expect-error - TypeScript infers NODE_ENV as 'development' | 'test' during build, but runtime value is 'production'
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7, // 7 days

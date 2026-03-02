@@ -96,8 +96,8 @@ export async function saveStateTransitionWithTransaction(
           data: {
             tenantId,
             customerId,
-            fromState: toPrismaStatus(previousState),
-            toState: toPrismaStatus(newEvaluatedState),
+            fromState: toPrismaStatus(previousState) as CustomerStatus,
+            toState: toPrismaStatus(newEvaluatedState) as CustomerStatus,
             reason,
           },
         });
