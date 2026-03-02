@@ -22,6 +22,14 @@ if (process.env.NODE_ENV === 'production' && !isMockAuthEnabled) {
   console.error('[SECURITY] Mock login is disabled in production');
 }
 
+// 生产环境必须拒绝 mock 登录
+if (process.env.NODE_ENV === 'production') {
+  return NextResponse.json(
+    { error: 'Forbidden', message: 'Mock login is disabled in production' },
+    { status: 403 }
+  );
+}
+
 // Mock 用户数据库（生产环境应查询真实数据库）
 const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
   'demo-user': {

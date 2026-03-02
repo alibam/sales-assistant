@@ -47,7 +47,7 @@ export function signToken(payload: Omit<Session, 'iat' | 'exp'>): string {
   };
   const payloadB64 = Buffer.from(JSON.stringify(session)).toString('base64url');
   const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', SECRET)
     .update(`${header}.${payloadB64}`)
     .digest('base64url');
   
@@ -66,7 +66,7 @@ export function verifyToken(token: string): Session | null {
     
     // 验证签名
     const expectedSignature = crypto
-      .createHmac('sha256', JWT_SECRET)
+      .createHmac('sha256', SECRET)
       .update(`${headerB64}.${payloadB64}`)
       .digest('base64url');
     
