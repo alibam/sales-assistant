@@ -2,20 +2,22 @@
  * Customer Detail Page
  * 
  * 展示客户的详细信息、包括 AI 生成的策略和缺口追问建议。
- * 使用 RSC 实现流式渲染。
+ * 
+ * M6 重构：
+ * - 使用流式策略渲染（StrategyStreamer）
+ * - 真正的打字机效果
+ * - 实时逐字渲染
  * 
  * 安全性：
- * - tenantId 从 session 动态获取（M5 修复）
+ * - tenantId 从 session 动态获取（M5）
  * - 所有数据库查询强制租户隔离
  */
-import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db/client';
 import { runGapAnalysisWithState } from '@/lib/services/gap-analysis-service';
-import { generateStrategy } from '@/lib/ai/strategy-generator';
 import { customerProfileSchema } from '@/lib/ai/gap-analysis';
 import { requireAuth } from '@/lib/auth/session';
-import { StrategyCard } from '@/components/strategy-card';
+import { StrategyStreamer } from '@/components/strategy-streamer';
 import { GapCardList } from '@/components/gap-card';
 import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
@@ -28,8 +30,6 @@ interface PageProps {
 
 /**
  * 获取客户数据
- * 
- * TODO(Milestone 5): tenantId 必须从认证上下文提取，禁止硬编码
  */
 async function getCustomer(id: string, tenantId: string) {
   try {
@@ -56,43 +56,12 @@ async function getCustomer(id: string, tenantId: string) {
 }
 
 /**
- * 生成策略（服务端组件）
- */
-async function StrategySection({ 
-  profileData, 
-  status,
-  classification 
-}: { 
-  profileData: CustomerProfile; 
-  status: 'A' | 'B' | 'C' | 'D';
-  classification: ClassificationResult;
-}) {
-  try {
-    const strategy = await generateStrategy(
-      profileData,
-      status,
-      classification
-    );
-    
-    return <StrategyCard {...strategy} />;
-  } catch (error) {
-    // 不向 UI 暴露内部错误细节
-    console.error('Strategy generation failed:', error);
-    return (
-      <div style={{ padding: '16px', background: '#fef2f2', borderRadius: '8px' }}>
-        <p style={{ color: '#dc2626' }}>策略生成失败，请稍后重试</p>
-      </div>
-    );
-  }
-}
-
-/**
  * 客户详情页面
  */
 export default async function CustomerPage({ params }: PageProps) {
   const { id } = params;
   
-  // ✅ M5: 从 session 动态获取 tenantId，废除环境变量
+  // ✅ M5: 从 session 动态获取 tenantId，确保租户隔离
   const session = await requireAuth();
   const tenantId = session.tenantId;
   
@@ -161,18 +130,25 @@ export default async function CustomerPage({ params }: PageProps) {
       
       {/* Main Content */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-        {/* Strategy Card */}
+        {/* Strategy Card - M6 流式渲染 */}
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '16px', color: '#0f172a' }}>
             📊 销售策略
+            <span style={{ 
+              fontSize: '12px', 
+              fontWeight: 400, 
+              color: '#64748b',
+              marginLeft: '8px',
+            }}>
+              实时生成中...
+            </span>
           </h2>
-          <Suspense fallback={<div style={{ padding: '16px', color: '#64748b' }}>加载中...</div>}>
-            <StrategySection 
-              profileData={mergedProfile}
-              status={classification.status}
-              classification={classification}
-            />
-          </Suspense>
+          <StrategyStreamer 
+            profileData={mergedProfile}
+            status={classification.status}
+            classification={classification}
+            customerId={id}
+          />
         </div>
         
         {/* Gap Analysis */}
