@@ -35,6 +35,7 @@ function createAIProvider() {
   return createOpenAI({
     baseURL: process.env.OPENAI_BASE_URL!,
     apiKey: process.env.OPENAI_API_KEY!,
+    compatibility: 'strict', // Use strict OpenAI compatibility mode
   });
 }
 

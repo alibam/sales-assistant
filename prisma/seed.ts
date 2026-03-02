@@ -5,9 +5,7 @@
  *
  * Usage: npx tsx prisma/seed.ts
  */
-import { PrismaClient, CustomerStatus } from "../generated/prisma";
-
-const prisma = new PrismaClient();
+import { prisma, CustomerStatus } from "../lib/db/client";
 
 async function main(): Promise<void> {
   console.log("🌱 Seeding database...");

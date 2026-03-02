@@ -2,6 +2,7 @@
  * Demo script to validate the Gap Analysis pipeline.
  * Run with: npx tsx scripts/demo-gap-analysis.ts
  */
+import 'dotenv/config';
 import { runGapAnalysis } from '../lib/ai/gap-analysis';
 
 async function main() {

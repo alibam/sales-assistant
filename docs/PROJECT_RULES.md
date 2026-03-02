@@ -28,3 +28,9 @@ You MUST STRICTLY adhere to the following technology stack:
 ## 5. Model Routing (Quality First)
 As the CTO orchestrating coding agents, you MUST ALWAYS use `claudecode` with the **Opus 4.6** model (e.g., `-m opus4.6`) for ALL coding, planning, and architectural tasks. 
 Do NOT use Sonnet, GLM5, or `opencode` until further notice. Code quality, strict typing, and architectural correctness are the absolute priorities over speed or cost.
+
+## 6. Maker-Checker Loop (Self-Testing & Healing)
+You MUST act as both the Developer and the QA Engineer. 
+Never report a Milestone or Task as "Complete" simply because the code is written. 
+You MUST autonomously execute relevant test scripts (e.g., `npx tsx scripts/...` or `npm run typecheck`), read the standard output/errors, and autonomously fix any bugs until the execution is 100% successful. Only report back to the user when the test passes or if you are completely blocked after 3 attempts.
+

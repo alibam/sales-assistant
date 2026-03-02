@@ -15,27 +15,30 @@ const schemaFieldDefSchema = z.object({
   description: z.string(),
   enum: z.array(z.string()).optional(),
   items: z.object({ type: z.string() }).optional(),
-});
+}).passthrough();
 
 const schemaSectionDefSchema = z.object({
   type: z.literal('object'),
   title: z.string(),
   properties: z.record(schemaFieldDefSchema),
   required: z.array(z.string()).optional(),
-});
+}).passthrough();
 
 const profileSchemaValidator = z.object({
+  $schema: z.string().optional(),
   title: z.string(),
   description: z.string(),
+  type: z.string().optional(),
   properties: z.record(schemaSectionDefSchema),
   required: z.array(z.string()),
+  additionalProperties: z.boolean().optional(),
   metadata: z.object({
     version: z.string(),
     industry: z.string(),
     locale: z.string(),
     classification_rules: z.record(z.string()),
   }),
-});
+}).passthrough();
 
 /** Cached schema instance */
 let cachedSchema: ProfileSchema | null = null;
