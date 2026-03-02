@@ -12,23 +12,6 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { Session, signToken } from '@/lib/auth/session';
-import crypto from 'crypto';
-
-// 环境检查：生产环境禁止 mock 登录
-// 仅在明确设置 ENABLE_MOCK_AUTH='true' 时启用（严格判定）
-const isMockAuthEnabled = process.env.ENABLE_MOCK_AUTH === 'true';
-
-if (process.env.NODE_ENV === 'production' && !isMockAuthEnabled) {
-  console.error('[SECURITY] Mock login is disabled in production');
-}
-
-// 生产环境必须拒绝 mock 登录
-if (process.env.NODE_ENV === 'production') {
-  return NextResponse.json(
-    { error: 'Forbidden', message: 'Mock login is disabled in production' },
-    { status: 403 }
-  );
-}
 
 // Mock 用户数据库（生产环境应查询真实数据库）
 const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
@@ -66,8 +49,10 @@ const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
  * - 403: { error: "Mock login disabled in production" }
  */
 export async function POST(request: NextRequest) {
-  // 环境检查：生产环境禁止 mock 登录
-  if (process.env.NODE_ENV === 'production' && !process.env.ENABLE_MOCK_AUTH) {
+  // 生产环境强制禁止 mock 登录（严格判定：仅 'true' 允许）
+  const isMockAuthEnabled = process.env.ENABLE_MOCK_AUTH === 'true';
+  
+  if (process.env.NODE_ENV === 'production' && !isMockAuthEnabled) {
     return NextResponse.json(
       { error: 'Forbidden', message: 'Mock login is disabled in production' },
       { status: 403 }
