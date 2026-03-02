@@ -154,6 +154,14 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
+    // 区分认证异常，返回 401
+    if (error instanceof Error && error.message.includes('Unauthorized')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', message: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    
     console.error('Gap analysis error:', error);
     
     // Handle configuration errors

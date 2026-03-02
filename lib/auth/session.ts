@@ -1,20 +1,96 @@
 /**
- * Session Management - Mock Authentication Layer
+ * Session Management - JWT-based Authentication
  * 
- * 轻量级会话模拟层，用于 Milestone 5 快速闭环。
- * 生产环境应替换为 NextAuth 或其他认证方案。
+ * 使用 HMAC-SHA256 签名的 JWT session，防止伪造。
  * 
  * 安全性：
- * - 从 HTTP-only Cookie 读取 session token
- * - Session 包含 userId 和 tenantId
- * - 所有敏感路由必须验证 session
+ * - Session token 使用 JWT 格式，包含签名
+ * - 验证 exp 过期时间
+ * - 验证签名完整性
  */
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 export interface Session {
   userId: string;
   tenantId: string;
   role: 'SALES_REP' | 'SALES_MANAGER' | 'TENANT_ADMIN';
+  iat: number; // issued at
+  exp: number; // expiration
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const SESSION_DURATION_HOURS = 24 * 7; // 7 days
+
+/**
+ * 生成 JWT token
+ */
+export function signToken(payload: Omit<Session, 'iat' | 'exp'>): string {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const now = Math.floor(Date.now() / 1000);
+  const session: Session = {
+    ...payload,
+    iat: now,
+    exp: now + SESSION_DURATION_HOURS * 3600,
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(session)).toString('base64url');
+  const signature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(`${header}.${payloadB64}`)
+    .digest('base64url');
+  
+  return `${header}.${payloadB64}.${signature}`;
+}
+
+/**
+ * 验证 JWT token
+ */
+export function verifyToken(token: string): Session | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    
+    const [headerB64, payloadB64, signature] = parts;
+    
+    // 验证签名
+    const expectedSignature = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest('base64url');
+    
+    if (signature !== expectedSignature) {
+      console.error('[Session] Invalid signature');
+      return null;
+    }
+    
+    // 解析 payload
+    const session = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8')) as Session;
+    
+    // 验证字段完整性
+    if (!session.userId || !session.tenantId || !session.role || !session.exp || !session.iat) {
+      console.error('[Session] Missing required fields');
+      return null;
+    }
+    
+    // 验证 role 枚举
+    const validRoles = ['SALES_REP', 'SALES_MANAGER', 'TENANT_ADMIN'];
+    if (!validRoles.includes(session.role)) {
+      console.error('[Session] Invalid role:', session.role);
+      return null;
+    }
+    
+    // 验证过期时间
+    const now = Math.floor(Date.now() / 1000);
+    if (session.exp < now) {
+      console.error('[Session] Token expired');
+      return null;
+    }
+    
+    return session;
+  } catch (error) {
+    console.error('[Session] Token verification failed:', error);
+    return null;
+  }
 }
 
 /**
@@ -30,21 +106,7 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
   
-  // TODO: 生产环境应该验证 JWT 或查询数据库
-  // 当前为 Mock 实现，从 Cookie 值解析 session
-  try {
-    const session = JSON.parse(Buffer.from(sessionToken, 'base64').toString('utf-8'));
-    
-    // 验证 session 结构
-    if (!session.userId || !session.tenantId || !session.role) {
-      return null;
-    }
-    
-    return session as Session;
-  } catch (error) {
-    console.error('[Session] Parse failed:', error);
-    return null;
-  }
+  return verifyToken(sessionToken);
 }
 
 /**
