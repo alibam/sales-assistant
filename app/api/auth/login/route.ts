@@ -14,9 +14,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Session, signToken } from '@/lib/auth/session';
 import crypto from 'crypto';
 
-// 环境检查：生产环境禁止使用 mock 登录
-if (process.env.NODE_ENV === 'production' && !process.env.ENABLE_MOCK_AUTH) {
-  console.error('[SECURITY] Mock login is disabled in production. Set ENABLE_MOCK_AUTH=true to override.');
+// 环境检查：生产环境禁止 mock 登录
+// 仅在明确设置 ENABLE_MOCK_AUTH='true' 时启用（严格判定）
+const isMockAuthEnabled = process.env.ENABLE_MOCK_AUTH === 'true';
+
+if (process.env.NODE_ENV === 'production' && !isMockAuthEnabled) {
+  console.error('[SECURITY] Mock login is disabled in production');
 }
 
 // Mock 用户数据库（生产环境应查询真实数据库）

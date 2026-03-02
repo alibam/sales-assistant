@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { runGapAnalysisWithState } from '@/lib/services/gap-analysis-service';
-import { requireAuth } from '@/lib/auth/session';
+import { requireAuth, AuthError } from '@/lib/auth/session';
 import type { CustomerProfile } from '@/lib/ai/types';
 
 // Infer types from Zod schemas for type safety
@@ -154,8 +154,8 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    // 区分认证异常，返回 401
-    if (error instanceof Error && error.message.includes('Unauthorized')) {
+    // 区分认证异常，使用专用错误类型精确映射 401
+    if (error instanceof AuthError) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Authentication required' },
         { status: 401 }

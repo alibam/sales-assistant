@@ -19,7 +19,19 @@ export interface Session {
   exp: number; // expiration
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// 生产环境必须配置 JWT_SECRET
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('[SECURITY] JWT_SECRET environment variable is required in production');
+  }
+  // 开发环境使用临时密钥
+  console.warn('[SECURITY] Using temporary JWT_SECRET for development only');
+}
+
+const DEV_JWT_SECRET = 'dev-secret-change-in-production';
+const SECRET = JWT_SECRET || DEV_JWT_SECRET;
 const SESSION_DURATION_HOURS = 24 * 7; // 7 days
 
 /**
@@ -110,16 +122,26 @@ export async function getSession(): Promise<Session | null> {
 }
 
 /**
+ * Auth Error - 专用认证错误类型
+ */
+export class AuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+/**
  * 获取当前用户的 tenantId
  * 
- * @throws Error 如果未认证
+ * @throws AuthError 如果未认证
  * @returns tenantId
  */
 export async function getTenantId(): Promise<string> {
   const session = await getSession();
   
   if (!session) {
-    throw new Error('Unauthorized: No valid session');
+    throw new AuthError('Unauthorized: No valid session');
   }
   
   return session.tenantId;
@@ -144,14 +166,14 @@ export async function getUserId(): Promise<string> {
 /**
  * 要求用户必须已认证，否则抛出错误
  * 
- * @throws Error 如果未认证
+ * @throws AuthError 如果未认证
  * @returns Session 对象
  */
 export async function requireAuth(): Promise<Session> {
   const session = await getSession();
   
   if (!session) {
-    throw new Error('Unauthorized: Authentication required');
+    throw new AuthError('Unauthorized: Authentication required');
   }
   
   return session;
