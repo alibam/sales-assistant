@@ -26,22 +26,27 @@ interface PageProps {
  * TODO(Milestone 5): tenantId 必须从认证上下文提取，禁止硬编码
  */
 async function getCustomer(id: string, tenantId: string) {
-  const customer = await prisma.customer.findFirst({
-    where: {
-      id,
-      tenantId,
-    },
-    select: {
-      id: true,
-      name: true,
-      status: true,
-      profileData: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-  
-  return customer;
+  try {
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        profileData: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    
+    return customer;
+  } catch (error) {
+    console.error('Database error in getCustomer:', error);
+    return null;
+  }
 }
 
 /**
@@ -65,13 +70,11 @@ async function StrategySection({
     
     return <StrategyCard {...strategy} />;
   } catch (error) {
+    // 不向 UI 暴露内部错误细节
     console.error('Strategy generation failed:', error);
     return (
       <div style={{ padding: '16px', background: '#fef2f2', borderRadius: '8px' }}>
         <p style={{ color: '#dc2626' }}>策略生成失败，请稍后重试</p>
-        <p style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>
-          {error instanceof Error ? error.message : 'Unknown error'}
-        </p>
       </div>
     );
   }
@@ -84,8 +87,12 @@ export default async function CustomerPage({ params }: PageProps) {
   const { id } = params;
   
   // TODO(Milestone 5): 从认证上下文获取 tenantId
-  // 当前为演示模式，实际部署时必须从 session 提取
-  const tenantId = process.env.DEMO_TENANT_ID || 'demo-tenant-id';
+  // 当前为演示模式，必须通过环境变量配置，无默认值
+  const tenantId = process.env.DEMO_TENANT_ID;
+  
+  if (!tenantId) {
+    throw new Error('DEMO_TENANT_ID environment variable is required');
+  }
   
   // 获取客户数据
   const customer = await getCustomer(id, tenantId);
@@ -94,15 +101,23 @@ export default async function CustomerPage({ params }: PageProps) {
     notFound();
   }
   
+  // 对 profileData 进行类型安全验证，避免脏数据进入系统
+  let profileData: Partial<CustomerProfile> = {};
+  if (customer.profileData && typeof customer.profileData === 'object') {
+    // 简单的结构检查，防止完全损坏的数据
+    // TODO: 使用 Zod schema.safeParse 进行完整验证
+    profileData = customer.profileData as Partial<CustomerProfile>;
+  }
+  
   // 运行 Gap Analysis
   const analysisResult = await runGapAnalysisWithState(
     '', // 空输入，使用现有 profile
-    customer.profileData as Partial<CustomerProfile>,
+    profileData,
     tenantId,
     id
   );
   
-  const profileData = analysisResult.mergedProfile;
+  const mergedProfile = analysisResult.mergedProfile;
   const classification = analysisResult.classification;
   const gaps = analysisResult.gaps;
   
@@ -141,7 +156,7 @@ export default async function CustomerPage({ params }: PageProps) {
           </h2>
           <Suspense fallback={<div style={{ padding: '16px', color: '#64748b' }}>加载中...</div>}>
             <StrategySection 
-              profileData={profileData}
+              profileData={mergedProfile}
               status={classification.status}
               classification={classification}
             />
