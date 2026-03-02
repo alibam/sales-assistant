@@ -149,11 +149,146 @@ console.error('[CustomerPage] profileData parse failed', {
 
 ---
 
+## 🚀 Milestone 6: True Generative UI (Streaming)
+
+### Issue 9: Server Action 运行时校验缺失
+**Location:** `lib/ai/strategy-server.ts`
+
+**Description:**
+Server Action 中定义了 `strategyRequestSchema`（使用 `customerProfileSchema.partial()`），但未执行 `safeParse` 运行时校验。
+
+**Current Code:**
+```typescript
+// schema 定义存在但未使用
+const strategyRequestSchema = z.object({
+  profileData: customerProfileSchema.partial().optional(),
+  // ...
+});
+
+// generateStrategyStream 函数直接使用参数，未校验
+export async function generateStrategyStream(
+  profileData: Partial<CustomerProfile> | undefined,
+  // ...
+)
+```
+
+**Chief Architect 批注:**
+> ⚠️ **严厉警告**：Next.js Server Action 暴露的是真实 HTTP 接口，TypeScript 静态类型无法防御运行时的恶意构造请求。后续重构**必须**补齐 Zod 运行时校验 (`safeParse`)。
+
+**Recommended Fix:**
+```typescript
+export async function generateStrategyStream(
+  rawProfileData: unknown,
+  status: unknown,
+  // ...
+) {
+  // 运行时校验
+  const validation = strategyRequestSchema.safeParse({
+    profileData: rawProfileData,
+    status,
+    classification,
+    customerId,
+  });
+  
+  if (!validation.success) {
+    throw new Error(`Invalid request: ${validation.error.message}`);
+  }
+  
+  const { profileData, status: validatedStatus } = validation.data;
+  // ...
+}
+```
+
+**Priority:** P1 (安全漏洞，必须修复)
+
+---
+
+### Issue 10: 类型断言绕过类型安全
+**Location:** 
+- `lib/ai/strategy-server.ts:124` - `partial as Strategy`
+- `components/strategy-streamer.tsx:65` - `streamableValue as any`
+
+**Description:**
+AI SDK v3.4.33 的流式类型与 TypeScript 静态类型存在不兼容，使用 `as` 断言绕过。
+
+**Current Code:**
+```typescript
+// strategy-server.ts
+for await (const partial of result.partialObjectStream) {
+  streamable.update(partial as Strategy);  // ⚠️ 类型断言
+}
+
+// strategy-streamer.tsx
+const [data, error, isLoading] = useStreamableValue<Strategy>(streamableValue as any);
+```
+
+**Recommended Fix:**
+等待 AI SDK v4 更新，或在类型定义中使用 `DeepPartial` 兜底。
+
+**Chief Architect 批注:**
+> 这是 SDK 层面的限制，当前可接受。但需要在上游库更新后第一时间回归测试。
+
+**Priority:** P2 (SDK 限制，可接受但需监控)
+
+---
+
+### Issue 11: 跨租户越权读取风险
+**Location:** `lib/ai/strategy-server.ts:76`
+
+**Description:**
+Server Action 仅调用 `requireAuth()` 验证用户已登录，未校验 `customerId` 与 `tenantId` 的归属关系。
+
+**Current Code:**
+```typescript
+export async function generateStrategyStream(
+  profileData: Partial<CustomerProfile> | undefined,
+  status: 'A' | 'B' | 'C' | 'D',
+  classification: ClassificationResult,
+  customerId?: string  // ⚠️ 未校验归属
+) {
+  // 只验证登录状态，未验证资源归属
+  await requireAuth();
+  // ...
+}
+```
+
+**Chief Architect 批注:**
+> ⚠️ **严厉警告**：B2B SaaS 中"只读"操作也可能导致跨租户数据泄露。后续**必须**在生成策略前，校验 `tenant_id` 与 `customer_id` 的归属权。即使是 AI 生成场景，也要确保租户隔离。
+
+**Recommended Fix:**
+```typescript
+export async function generateStrategyStream(
+  // ...
+  customerId: string
+) {
+  const session = await requireAuth();
+  const tenantId = session.tenantId;
+  
+  // ✅ 校验客户归属
+  if (customerId) {
+    const customer = await prisma.customer.findFirst({
+      where: { id: customerId, tenantId },
+      select: { id: true },
+    });
+    
+    if (!customer) {
+      throw new Error('Unauthorized: Customer does not belong to this tenant');
+    }
+  }
+  // ...
+}
+```
+
+**Priority:** P1 (安全漏洞，必须修复)
+
+---
+
 ## 📝 Notes
 
 - All items marked P2/P3 are non-blocking for Milestone 4 completion
 - Technical debt will be addressed during post-MVP refactoring phase
 - M4 passed Codex 4th review with PASS status (no blocking issues)
+- M6 passed Codex review with ACCEPTABLE status (3 medium issues documented)
 
 **Last Updated:** 2026-03-02
-**Milestone:** 4 (Strategy Generation & Generative UI)
+**Milestone:** 6 (True Generative UI - Streaming)
