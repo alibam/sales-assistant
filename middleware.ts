@@ -57,7 +57,7 @@ function isPublicPath(pathname: string): boolean {
 /**
  * Middleware 主函数
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   
   // 1. 公开路径直接放行
@@ -73,7 +73,7 @@ export function middleware(request: NextRequest) {
   }
   
   // 3. 验证 JWT 签名和过期时间
-  const session = verifyToken(sessionToken);
+  const session = await verifyToken(sessionToken);
   
   if (!session) {
     return handleUnauthorized(request, pathname);

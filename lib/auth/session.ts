@@ -7,9 +7,12 @@
  * - Session token 使用 JWT 格式，包含签名
  * - 验证 exp 过期时间
  * - 验证签名完整性
+ * 
+ * Edge Runtime 兼容：
+ * - 使用 Web Crypto API 而不是 Node.js crypto 模块
+ * - 兼容 Next.js middleware (Edge Runtime)
  */
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
 
 export interface Session {
   userId: string;
@@ -35,21 +38,83 @@ const SECRET = JWT_SECRET || DEV_JWT_SECRET;
 const SESSION_DURATION_HOURS = 24 * 7; // 7 days
 
 /**
+ * 将字符串转换为 Uint8Array
+ */
+function stringToUint8Array(str: string): Uint8Array {
+  return new TextEncoder().encode(str);
+}
+
+/**
+ * 将 ArrayBuffer 转换为 base64url 字符串
+ */
+function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+/**
+ * 将 base64url 字符串转换为 Uint8Array
+ */
+function base64UrlToUint8Array(base64url: string): Uint8Array {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + (4 - base64.length % 4) % 4, '=');
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
+ * 使用 Web Crypto API 生成 HMAC-SHA256 签名
+ */
+async function hmacSha256(message: string, secret: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(message);
+  
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  
+  const signature = await crypto.subtle.sign('HMAC', key, messageData);
+  return arrayBufferToBase64Url(signature);
+}
+
+/**
  * 生成 JWT token
  */
-export function signToken(payload: Omit<Session, 'iat' | 'exp'>): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+export async function signToken(payload: Omit<Session, 'iat' | 'exp'>): Promise<string> {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+  
   const now = Math.floor(Date.now() / 1000);
   const session: Session = {
     ...payload,
     iat: now,
     exp: now + SESSION_DURATION_HOURS * 3600,
   };
-  const payloadB64 = Buffer.from(JSON.stringify(session)).toString('base64url');
-  const signature = crypto
-    .createHmac('sha256', SECRET)
-    .update(`${header}.${payloadB64}`)
-    .digest('base64url');
+  
+  const payloadB64 = btoa(JSON.stringify(session))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+  
+  const signature = await hmacSha256(`${header}.${payloadB64}`, SECRET);
   
   return `${header}.${payloadB64}.${signature}`;
 }
@@ -57,7 +122,7 @@ export function signToken(payload: Omit<Session, 'iat' | 'exp'>): string {
 /**
  * 验证 JWT token
  */
-export function verifyToken(token: string): Session | null {
+export async function verifyToken(token: string): Promise<Session | null> {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
@@ -65,10 +130,7 @@ export function verifyToken(token: string): Session | null {
     const [headerB64, payloadB64, signature] = parts;
     
     // 验证签名
-    const expectedSignature = crypto
-      .createHmac('sha256', SECRET)
-      .update(`${headerB64}.${payloadB64}`)
-      .digest('base64url');
+    const expectedSignature = await hmacSha256(`${headerB64}.${payloadB64}`, SECRET);
     
     if (signature !== expectedSignature) {
       console.error('[Session] Invalid signature');
@@ -76,7 +138,9 @@ export function verifyToken(token: string): Session | null {
     }
     
     // 解析 payload
-    const session = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf-8')) as Session;
+    const payloadBytes = base64UrlToUint8Array(payloadB64);
+    const payloadStr = new TextDecoder().decode(payloadBytes);
+    const session = JSON.parse(payloadStr) as Session;
     
     // 验证字段完整性
     if (!session.userId || !session.tenantId || !session.role || !session.exp || !session.iat) {
@@ -118,7 +182,7 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
   
-  return verifyToken(sessionToken);
+  return await verifyToken(sessionToken);
 }
 
 /**

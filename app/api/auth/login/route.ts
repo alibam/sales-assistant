@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     }
     
     // 生成 JWT session token（带签名）
-    const sessionToken = signToken(userSession);
+    const sessionToken = await signToken(userSession);
     
     // 创建响应并设置 HTTP-only Cookie
     const response = NextResponse.json({
