@@ -5,8 +5,7 @@
  * Accepts sales rep input and optional existing profile.
  * Runs gap analysis + state evaluation.
  * 
- * SECURITY NOTE: In production, tenantId MUST come from authenticated session,
- * not from request body. Current implementation is for development only.
+ * SECURITY (M5): tenantId 从 session 动态获取，禁止从 request body 传入
  * 
  * GET /api/gap-analysis
  * Returns API documentation and health check.
@@ -14,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { runGapAnalysisWithState } from '@/lib/services/gap-analysis-service';
+import { requireAuth } from '@/lib/auth/session';
 import type { CustomerProfile } from '@/lib/ai/types';
 
 // Infer types from Zod schemas for type safety
@@ -78,13 +78,11 @@ const customerProfileSchema = z.object({
 });
 
 // Request schema - strict mode to reject unknown fields
+// M5: tenantId 和 customerId 从 session 获取，不再从 request body 接受
 const gapAnalysisRequestSchema = z.object({
   input: z.string().min(1, 'Input cannot be empty'),
   existingProfile: customerProfileSchema.optional(),
-  // SECURITY: In production, remove these from request body
-  // tenantId should come from auth context/middleware
-  tenantId: z.string().uuid().optional(),
-  customerId: z.string().uuid().optional(),
+  customerId: z.string().uuid().optional(), // 可选，用于关联特定客户
 }).strict();
 
 // Type inference from schema
@@ -96,6 +94,10 @@ type GapAnalysisRequest = z.infer<typeof gapAnalysisRequestSchema>;
  */
 export async function POST(request: NextRequest) {
   try {
+    // ✅ M5: 从 session 动态获取 tenantId，确保租户隔离
+    const session = await requireAuth();
+    const tenantId = session.tenantId;
+    
     // Parse JSON body with proper error handling
     let body;
     try {
@@ -120,12 +122,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const { input, existingProfile, tenantId, customerId } = validation.data;
-    
-    // TODO(Milestone 5): Security - tenantId MUST be extracted from Auth context, not request body.
-    // RISK ACCEPTANCE: CEO has acknowledged this security risk and signed off on deferring
-    // the fix to Milestone 5 when the global authentication middleware will be implemented.
-    // Current implementation is for development/testing only.
+    const { input, existingProfile, customerId } = validation.data;
     
     // Validate existingProfile with Zod if provided
     let validatedProfile: Partial<CustomerProfile> | undefined = undefined;
@@ -211,9 +208,9 @@ export async function GET() {
         requestBody: {
           input: 'string (required) - Natural language input from sales rep',
           existingProfile: 'CustomerProfile (optional) - Existing profile to merge',
-          tenantId: 'string (optional) - Tenant ID for state persistence',
           customerId: 'string (optional) - Customer ID for state persistence',
         },
+        securityNote: 'tenantId is automatically extracted from authenticated session (M5)',
         response: {
           success: 'boolean',
           data: {

@@ -3,6 +3,10 @@
  * 
  * 展示客户的详细信息、包括 AI 生成的策略和缺口追问建议。
  * 使用 RSC 实现流式渲染。
+ * 
+ * 安全性：
+ * - tenantId 从 session 动态获取（M5 修复）
+ * - 所有数据库查询强制租户隔离
  */
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
@@ -10,6 +14,7 @@ import { prisma } from '@/lib/db/client';
 import { runGapAnalysisWithState } from '@/lib/services/gap-analysis-service';
 import { generateStrategy } from '@/lib/ai/strategy-generator';
 import { customerProfileSchema } from '@/lib/ai/gap-analysis';
+import { requireAuth } from '@/lib/auth/session';
 import { StrategyCard } from '@/components/strategy-card';
 import { GapCardList } from '@/components/gap-card';
 import type { CustomerProfile } from '@/lib/ai/types';
@@ -87,13 +92,9 @@ async function StrategySection({
 export default async function CustomerPage({ params }: PageProps) {
   const { id } = params;
   
-  // TODO(Milestone 5): 从认证上下文获取 tenantId
-  // 当前为演示模式，必须通过环境变量配置，无默认值
-  const tenantId = process.env.DEMO_TENANT_ID;
-  
-  if (!tenantId) {
-    throw new Error('DEMO_TENANT_ID environment variable is required');
-  }
+  // ✅ M5: 从 session 动态获取 tenantId，废除环境变量
+  const session = await requireAuth();
+  const tenantId = session.tenantId;
   
   // 获取客户数据
   const customer = await getCustomer(id, tenantId);
