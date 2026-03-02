@@ -47,14 +47,23 @@ const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
  * - 200: { success: true, session: {...} }
  * - 401: { error: "Invalid credentials" }
  * - 403: { error: "Mock login disabled in production" }
+ * 
+ * 安全配置：
+ * - 生产环境默认禁止 mock 登录
+ * - 设置 ENABLE_MOCK_LOGIN=true 可强制启用（仅用于演示/测试）
  */
 export async function POST(request: NextRequest) {
-  // 生产环境绝对禁止 mock 登录（无任何例外）
+  // 生产环境安全检查
   if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      { error: 'Forbidden', message: 'Mock login is disabled in production' },
-      { status: 403 }
-    );
+    // 只有显式启用 ENABLE_MOCK_LOGIN=true 才允许 mock 登录
+    // ⚠️ 警告：这仅用于演示/测试环境，生产环境应使用真实认证
+    if (process.env.ENABLE_MOCK_LOGIN !== 'true') {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Mock login is disabled in production. Set ENABLE_MOCK_LOGIN=true to enable for demo.' },
+        { status: 403 }
+      );
+    }
+    console.warn('[SECURITY] Mock login enabled in production mode - FOR DEMO ONLY');
   }
   
   try {
@@ -95,7 +104,6 @@ export async function POST(request: NextRequest) {
     // 设置 Cookie（HTTP-only, Secure in production）
     response.cookies.set('session_token', sessionToken, {
       httpOnly: true,
-      // @ts-expect-error - TypeScript infers NODE_ENV as 'development' | 'test' during build, but runtime value is 'production'
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: 60 * 60 * 24 * 7, // 7 days

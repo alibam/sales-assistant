@@ -5,3 +5,6 @@ node_modules
 /generated/prisma
 .next/
 generated/
+test-results/
+playwright-report/
+.auth
