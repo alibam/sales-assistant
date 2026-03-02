@@ -15,6 +15,8 @@
 import { useObject } from 'ai/react';
 import { z } from 'zod';
 import { useEffect, useState } from 'react';
+import type { CustomerProfile } from '@/lib/ai/types';
+import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
 
 // ── Zod Schema (与 API 保持一致) ──
 
@@ -44,9 +46,9 @@ const strategySchema = z.object({
 type Strategy = z.infer<typeof strategySchema>;
 
 interface StrategyStreamerProps {
-  profileData: any;
+  profileData: Partial<CustomerProfile>;
   status: 'A' | 'B' | 'C' | 'D';
-  classification: any;
+  classification: ClassificationResult;
   customerId: string;
 }
 
@@ -74,6 +76,12 @@ export function StrategyStreamer({
   // 打字机效果状态
   const [displayedTitle, setDisplayedTitle] = useState('');
   const [displayedSummary, setDisplayedSummary] = useState('');
+  
+  // 当 customerId 或 status 变化时，重置打字机状态
+  useEffect(() => {
+    setDisplayedTitle('');
+    setDisplayedSummary('');
+  }, [customerId, status]);
   
   // 标题打字机效果
   useEffect(() => {

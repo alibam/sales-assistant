@@ -41,16 +41,30 @@ const strategySchema = z.object({
   nextFollowUp: z.string().describe('下次跟进建议'),
 });
 
+// ── Request Schema for Validation ──
+
+const strategyRequestSchema = z.object({
+  profileData: z.record(z.any()).optional(),
+  status: z.enum(['A', 'B', 'C', 'D']),
+  classification: z.object({
+    status: z.enum(['A', 'B', 'C', 'D']),
+    reason: z.string(),
+    confidence: z.enum(['high', 'medium', 'low']),
+  }),
+  customerId: z.string().optional(),
+});
+
 /**
  * POST /api/strategy
  * 
  * 流式生成销售策略
  * 
- * Request Body:
+ * Request Body (validated by Zod):
  * {
  *   profileData: CustomerProfile,
  *   status: 'A' | 'B' | 'C' | 'D',
- *   classification: ClassificationResult
+ *   classification: ClassificationResult,
+ *   customerId?: string
  * }
  * 
  * Response: Streaming JSON
@@ -62,12 +76,30 @@ export async function POST(request: NextRequest) {
     const tenantId = session.tenantId;
     
     // 解析请求体
-    const body = await request.json();
-    const { profileData, status, classification } = body as {
-      profileData: CustomerProfile;
-      status: 'A' | 'B' | 'C' | 'D';
-      classification: ClassificationResult;
-    };
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON', message: 'Request body must be valid JSON' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // ✅ Zod 请求校验
+    const validation = strategyRequestSchema.safeParse(body);
+    
+    if (!validation.success) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid request', 
+          details: validation.error.errors 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { profileData, status, classification, customerId } = validation.data;
     
     // 构建上下文
     const context = buildContext(profileData, status, classification);
