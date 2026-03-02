@@ -68,7 +68,7 @@ const blockersSchema = z.object({
 });
 
 /** Complete customer profile zod schema for generateObject */
-const customerProfileSchema = z.object({
+export const customerProfileSchema = z.object({
   scene: sceneSchema.optional(),
   preference: preferenceSchema.optional(),
   budget_payment: budgetPaymentSchema.optional(),

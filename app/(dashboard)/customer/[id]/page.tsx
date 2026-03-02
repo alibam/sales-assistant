@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/db/client';
 import { runGapAnalysisWithState } from '@/lib/services/gap-analysis-service';
 import { generateStrategy } from '@/lib/ai/strategy-generator';
+import { customerProfileSchema } from '@/lib/ai/gap-analysis';
 import { StrategyCard } from '@/components/strategy-card';
 import { GapCardList } from '@/components/gap-card';
 import type { CustomerProfile } from '@/lib/ai/types';
@@ -101,12 +102,22 @@ export default async function CustomerPage({ params }: PageProps) {
     notFound();
   }
   
-  // 对 profileData 进行类型安全验证，避免脏数据进入系统
-  let profileData: Partial<CustomerProfile> = {};
-  if (customer.profileData && typeof customer.profileData === 'object') {
-    // 简单的结构检查，防止完全损坏的数据
-    // TODO: 使用 Zod schema.safeParse 进行完整验证
-    profileData = customer.profileData as Partial<CustomerProfile>;
+  // 对 profileData 进行 Zod schema 安全解析
+  // 避免脏数据（如 Array、null、损坏的 JSON）进入系统
+  const dbProfile = customer.profileData;
+  const parseResult = customerProfileSchema.partial().safeParse(dbProfile);
+  
+  // 如果解析失败，返回空对象作为兜底，记录告警但不抛异常
+  const profileData: Partial<CustomerProfile> = parseResult.success 
+    ? parseResult.data 
+    : {};
+  
+  if (!parseResult.success) {
+    console.error('[CustomerPage] profileData parse failed', {
+      customerId: customer.id,
+      tenantId,
+      error: parseResult.error.message,
+    });
   }
   
   // 运行 Gap Analysis
