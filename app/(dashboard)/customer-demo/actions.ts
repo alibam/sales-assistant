@@ -6,7 +6,7 @@
 'use server';
 
 import { requireAuth } from '@/lib/auth/session';
-import { prisma } from '@/lib/db/prisma';
+import { prisma } from '@/lib/db/client';
 
 /**
  * 重置客户画像
