@@ -7,9 +7,11 @@
 
 import React, { useState, useTransition } from 'react';
 import { useStreamableValue } from 'ai/rsc';
+import { useRouter } from 'next/navigation';
 import { generateStrategyStream, type Strategy } from '@/lib/ai/strategy-server';
 import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
+import { resetCustomerProfile } from './actions';
 
 interface SeedCustomer {
   name: string;
@@ -22,8 +24,10 @@ interface Props {
 }
 
 export function CustomerDemoClient({ customer }: Props) {
+  const router = useRouter();
   const [followUpText, setFollowUpText] = useState('');
   const [isPending, startTransition] = useTransition();
+  const [isResetting, setIsResetting] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [streamableValue, setStreamableValue] = useState<any>(undefined);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,13 +45,36 @@ export function CustomerDemoClient({ customer }: Props) {
           customer.classification.status,
           customer.classification,
           'demo-customer',
-          customer.profile // existingProfile
+          customer.profile, // existingProfile
+          customer.name // customerName
         );
         setStreamableValue(stream);
       } catch (err) {
         console.error('生成失败:', err);
       }
     });
+  }
+
+  async function handleReset() {
+    if (!confirm('确定要重置此客户的画像数据吗？此操作不可撤销！')) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const result = await resetCustomerProfile('demo-customer');
+      if (result.success) {
+        alert('✅ 客户画像已重置');
+        router.refresh();
+      } else {
+        alert(`❌ 重置失败: ${result.error}`);
+      }
+    } catch (err) {
+      console.error('重置失败:', err);
+      alert('❌ 重置失败');
+    } finally {
+      setIsResetting(false);
+    }
   }
 
   const showSkeleton = isPending && !data;
@@ -183,9 +210,28 @@ export function CustomerDemoClient({ customer }: Props) {
             fontSize: '16px',
             fontWeight: 600,
             cursor: isPending ? 'not-allowed' : 'pointer',
+            marginRight: '12px',
           }}
         >
           {isPending ? '生成中...' : '生成 AI 策略'}
+        </button>
+
+        <button
+          onClick={handleReset}
+          disabled={isResetting}
+          style={{
+            marginTop: '16px',
+            padding: '12px 24px',
+            background: isResetting ? '#fca5a5' : '#ef4444',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '16px',
+            fontWeight: 600,
+            cursor: isResetting ? 'not-allowed' : 'pointer',
+          }}
+        >
+          {isResetting ? '重置中...' : '🧹 重置此客户画像'}
         </button>
       </section>
       

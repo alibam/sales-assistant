@@ -80,7 +80,8 @@ export async function generateStrategyStream(
   status: 'A' | 'B' | 'C' | 'D',
   classification: ClassificationResult,
   customerId?: string,
-  existingProfile?: Partial<CustomerProfile>
+  existingProfile?: Partial<CustomerProfile>,
+  customerName?: string
 ): Promise<ReturnType<typeof createStreamableValue<Strategy>>['value']> {
   // ✅ 认证检查（Server Action 也需要鉴权）
   await requireAuth();
@@ -130,14 +131,24 @@ export async function generateStrategyStream(
   
   // 创建流式值
   const streamable = createStreamableValue<Strategy>();
-  
+
   // 启动流式生成（异步执行）
   (async () => {
     try {
+      // 构建客户基础信息注入
+      const customerInfo = buildCustomerInfo(mergedProfile as Partial<CustomerProfile>, customerName);
+
+      // 构建阶段约束指令
+      const stageConstraints = buildStageConstraints(finalStatus);
+
       const result = await streamObject({
         model: getAIModel(),
         schema: strategySchema,
         prompt: `你是一位资深的汽车销售顾问。基于以下客户画像和分类信息，生成个性化的销售策略。
+
+${customerInfo}
+
+${stageConstraints}
 
 客户画像：
 ${buildContext(mergedProfile as Partial<CustomerProfile>, finalStatus, classification)}
@@ -238,6 +249,106 @@ function buildContext(
     if (profileData.blockers.intensity) parts.push(`- 卡点强度: ${profileData.blockers.intensity}`);
     if (profileData.blockers.needs_manager !== undefined) parts.push(`- 需要经理: ${profileData.blockers.needs_manager ? '是' : '否'}`);
   }
-  
+
   return parts.length > 0 ? parts.join('\n') : '暂无完整信息';
+}
+
+/**
+ * 构建客户基础信息注入
+ *
+ * Task 2: 强注入客户基础信息，防止大模型幻觉
+ */
+function buildCustomerInfo(profileData: Partial<CustomerProfile>, customerName?: string): string {
+  const parts: string[] = [];
+
+  parts.push('⚠️ 客户基础信息（严格遵守）：');
+
+  // 客户姓名
+  if (customerName) {
+    const surname = customerName.charAt(0);
+    parts.push(`- 客户姓名: ${customerName}`);
+    parts.push(`- 称呼规则: 必须使用"${surname}先生"或"${surname}哥"，绝对不允许凭空捏造其他姓氏或称呼`);
+  }
+
+  // 意向车型
+  if (profileData.preference?.intent_model) {
+    parts.push(`- 意向车型: ${profileData.preference.intent_model}`);
+  }
+
+  parts.push('');
+  parts.push('🚨 严格警告：');
+  parts.push('- 绝对不允许凭空捏造客户姓氏或称呼');
+  if (customerName) {
+    const surname = customerName.charAt(0);
+    parts.push(`- 如果客户姓名是"${customerName}"，必须称呼"${surname}先生"或"${surname}哥"，绝不能叫"王总"或其他名字`);
+  }
+  parts.push('- 所有信息必须基于已知的客户画像，不得编造');
+  parts.push('');
+
+  return parts.join('\n');
+}
+
+/**
+ * 从客户画像中提取客户姓名
+ *
+ * 注意：这是一个简化实现，实际应该从数据库的 Customer.name 字段获取
+ */
+function extractCustomerName(profileData: Partial<CustomerProfile>): string | null {
+  // TODO: 从实际的客户数据中获取姓名
+  // 这里暂时返回 null，需要在调用 generateStrategyStream 时传入客户姓名
+  return null;
+}
+
+/**
+ * 构建阶段约束指令
+ *
+ * Task 3: 按 A/B/C/D 状态分发不同的分析策略 (SOP 强控)
+ */
+function buildStageConstraints(status: 'A' | 'B' | 'C' | 'D'): string {
+  const parts: string[] = [];
+
+  parts.push('📋 阶段约束指令（必须严格遵守）：');
+  parts.push('');
+
+  if (status === 'D' || status === 'C') {
+    // D 级/C 级客户：信息收集阶段
+    parts.push('【D 级/C 级客户 - 信息收集阶段】');
+    parts.push('');
+    parts.push('✅ 必须做的：');
+    parts.push('- 策略必须 90% 聚焦于提问与信息收集');
+    parts.push('- 话术必须是探寻式的：询问购车动机、家庭结构、预算范围');
+    parts.push('- 重点了解客户需求、使用场景、决策单元');
+    parts.push('');
+    parts.push('❌ 绝对禁止：');
+    parts.push('- 逼单话术（如"今天下单有优惠"）');
+    parts.push('- 具体报价和优惠方案');
+    parts.push('- 送礼品、试驾安排等成交动作');
+    parts.push('- 任何带有压迫感的成交话术');
+    parts.push('');
+    parts.push('💡 话术示例：');
+    parts.push('- "您平时主要是什么场景用车呢？"');
+    parts.push('- "家里有几口人？平时谁开车比较多？"');
+    parts.push('- "您对预算有什么考虑吗？"');
+    parts.push('- "您比较看重车的哪些方面？"');
+  } else {
+    // B 级/A 级客户：价值塑造与成交阶段
+    parts.push('【B 级/A 级客户 - 价值塑造与成交阶段】');
+    parts.push('');
+    parts.push('✅ 可以输出：');
+    parts.push('- 价值塑造：强调产品卖点和差异化优势');
+    parts.push('- 竞品对比：针对性分析竞品劣势');
+    parts.push('- 金融方案：提供具体的付款方案和优惠');
+    parts.push('- 逼单策略：使用限时优惠、稀缺性等成交技巧');
+    parts.push('- 具体行动：安排试驾、邀约到店、推动签约');
+    parts.push('');
+    parts.push('💡 话术示例：');
+    parts.push('- "这款车在同级别中的空间是最大的，非常适合您的家庭需求"');
+    parts.push('- "本月底前下单可以享受额外的金融贴息"');
+    parts.push('- "这个配置的现车不多了，建议您尽快安排试驾"');
+    parts.push('- "我们可以为您申请一个特别的置换补贴"');
+  }
+
+  parts.push('');
+
+  return parts.join('\n');
 }

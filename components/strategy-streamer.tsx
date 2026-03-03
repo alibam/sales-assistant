@@ -24,6 +24,7 @@ interface StrategyStreamerProps {
   status: 'A' | 'B' | 'C' | 'D';
   classification: ClassificationResult;
   customerId: string;
+  customerName?: string;
 }
 
 export function StrategyStreamer({
@@ -31,6 +32,7 @@ export function StrategyStreamer({
   status,
   classification,
   customerId,
+  customerName,
 }: StrategyStreamerProps) {
   const [isPending, startTransition] = useTransition();
   const [streamableValue, setStreamableValue] = useState<Awaited<ReturnType<typeof generateStrategyStream>> | null>(null);
@@ -44,13 +46,13 @@ export function StrategyStreamer({
   useEffect(() => {
     startTransition(async () => {
       try {
-        const result = await generateStrategyStream(profileData, status, classification, customerId);
+        const result = await generateStrategyStream(profileData, status, classification, customerId, undefined, customerName);
         setStreamableValue(result);
       } catch (err) {
         console.error('[StrategyStreamer] Failed to start stream:', err);
       }
     });
-  }, [profileData, status, classification, customerId]);
+  }, [profileData, status, classification, customerId, customerName]);
   
   // 当 customerId 或 status 变化时，重置所有状态
   useEffect(() => {
