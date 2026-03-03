@@ -1,11 +1,13 @@
 /**
  * Customer Demo Client Component
  * 
- * 客户端交互组件，处理跟进记录输入和 AI 策略生成
+ * 客户端交互组件，处理跟进记录输入和 AI 策略流式生成
  */
 'use client';
 
 import React, { useState, useTransition } from 'react';
+import { useStreamableValue } from 'ai/rsc';
+import { generateStrategyStream, type Strategy } from '@/lib/ai/strategy-server';
 import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
 
@@ -22,41 +24,32 @@ interface Props {
 export function CustomerDemoClient({ customer }: Props) {
   const [followUpText, setFollowUpText] = useState('');
   const [isPending, startTransition] = useTransition();
-  const [data, setData] = useState<any>(null);
-  const [error, setError] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [streamableValue, setStreamableValue] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [data, error] = useStreamableValue<any>(streamableValue);
 
   function handleGenerate() {
     if (!followUpText.trim()) return;
     
-    startTransition(() => {
-      setData(null);
-      setError(null);
-      
-      // 模拟 AI 生成（实际应该调用 server action）
-      setTimeout(() => {
-        setData({
-          title: '客户分析',
-          summary: '基于客户画像和跟进记录的策略建议',
-          talkTracks: [
-            {
-              objective: '强调安全性',
-              script: '我们的车型在安全测试中获得了五星评级',
-              whenToUse: '当客户提到安全顾虑时'
-            }
-          ],
-          actionPlan: [
-            {
-              action: '安排试驾',
-              rationale: '让客户亲身体验车辆性能',
-              priority: '高'
-            }
-          ]
-        });
-      }, 3000);
+    startTransition(async () => {
+      try {
+        // 调用真实的 Server Action，获取流式值
+        const stream = await generateStrategyStream(
+          customer.profile,
+          customer.classification.status,
+          customer.classification,
+          'demo-customer'
+        );
+        setStreamableValue(stream);
+      } catch (err) {
+        console.error('生成失败:', err);
+      }
     });
   }
 
   const showSkeleton = isPending && !data;
+  const isGenerating = isPending;
 
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -216,7 +209,7 @@ export function CustomerDemoClient({ customer }: Props) {
       )}
       
       {/* 流式生成区 */}
-      {!showSkeleton && data && (
+      {data && (
         <div
           data-testid="strategy-stream-region"
           aria-live="polite"
@@ -264,7 +257,7 @@ export function CustomerDemoClient({ customer }: Props) {
                     {track.script}
                   </p>
                   <p style={{ fontSize: '12px', color: '#16a34a' }}>
-                    使用时机: {track.whenToUse}
+                    语气: {track.tone} | 使用时机: {track.whenToUse}
                   </p>
                 </div>
               ))}
@@ -286,16 +279,22 @@ export function CustomerDemoClient({ customer }: Props) {
                   border: '1px solid #fde047',
                 }}>
                   <p style={{ fontSize: '14px', fontWeight: 600, color: '#92400e', marginBottom: '4px' }}>
-                    {action.action}
+                    {action.step}
                   </p>
-                  <p style={{ fontSize: '14px', color: '#b45309', marginBottom: '4px' }}>
-                    {action.rationale}
-                  </p>
-                  <p style={{ fontSize: '12px', color: '#d97706' }}>
-                    优先级: {action.priority}
+                  <p style={{ fontSize: '12px', color: '#b45309' }}>
+                    负责人: {action.owner} | 时间: {action.dueWindow}
                   </p>
                 </div>
               ))}
+            </div>
+          )}
+          
+          {/* 下次跟进建议 */}
+          {data.nextFollowUp && (
+            <div style={{ marginTop: '16px', padding: '12px', background: '#f0f9ff', borderRadius: '8px' }}>
+              <p style={{ fontSize: '14px', fontWeight: 600, color: '#0369a1' }}>
+                📅 下次跟进: {data.nextFollowUp}
+              </p>
             </div>
           )}
         </div>

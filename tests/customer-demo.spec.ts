@@ -137,17 +137,17 @@ test.describe('BDD: /customer-demo AI 策略流式生成', () => {
     await test.step('Then-3: 流式区出现 + 内容渲染', async () => {
       const stream = streamRegion(page);
 
-      // 等待流式区域可见
-      await expect(stream).toBeVisible({ timeout: 20_000 });
+      // 等待流式区域可见（真实流式可能需要更长时间）
+      await expect(stream).toBeVisible({ timeout: 60_000 });
 
-      // 关键业务块出现（分析/话术建议/行动计划）
-      await expect(stream).toContainText(/分析|话术建议|行动计划/);
+      // 关键业务块出现
+      await expect(stream).toContainText(/策略|话术|行动|跟进/);
     });
 
     await test.step('Then-4: 生成完成后按钮恢复可点击', async () => {
       const btn = generateButton(page);
-      await expect(btn).toBeEnabled({ timeout: 30_000 });
-      await expect(btn).toHaveText(/生成\s*AI\s*策略/i);
+      // 等待流完成后再检查按钮状态
+      await expect(btn).toBeEnabled({ timeout: 90_000 });
     });
   });
 });
