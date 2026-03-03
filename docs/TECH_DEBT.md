@@ -290,5 +290,30 @@ export async function generateStrategyStream(
 - M4 passed Codex 4th review with PASS status (no blocking issues)
 - M6 passed Codex review with ACCEPTABLE status (3 medium issues documented)
 
-**Last Updated:** 2026-03-02
+**Last Updated:** 2026-03-03
 **Milestone:** 6 (True Generative UI - Streaming)
+
+---
+
+## 🔌 AI SDK Compatibility Issues
+
+### Issue 12: Minimax API 伪流式响应
+**Location:** AI Provider Integration
+
+**Description:**
+Minimax API 虽然声称兼容 OpenAI 协议，但不支持真正的流式响应。表现为：
+- 后端等待模型完全生成完毕后一次性返回
+- 前端无法实现渐进式渲染
+- 响应时间长（20-38 秒）
+- 日志警告：`The streamable value has been slow to update`
+
+**验证结果（2026-03-03）：**
+- ✅ Qwen3-Next-80B-A3B：真流式，响应均匀
+- ❌ Minimax：伪流式，一次性返回
+
+**技术决策：**
+正式接受 Qwen3-Next-80B-A3B 作为默认推理模型。Minimax 问题属于 AI SDK 兼容性范畴，暂不处理。
+
+**Priority:** P3 (已有替代方案，不影响核心功能)
+
+**Status:** 已记录，暂不修复
