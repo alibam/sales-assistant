@@ -25,7 +25,7 @@ export function CustomerDemoClient({ customer }: Props) {
   const [followUpText, setFollowUpText] = useState('');
   const [isPending, startTransition] = useTransition();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [streamableValue, setStreamableValue] = useState<any>(null);
+  const [streamableValue, setStreamableValue] = useState<any>(undefined);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, error] = useStreamableValue<any>(streamableValue);
 
