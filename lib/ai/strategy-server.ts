@@ -12,10 +12,12 @@ import { createStreamableValue } from 'ai/rsc';
 import { streamObject } from 'ai';
 import { z } from 'zod';
 import { getAIModel } from './provider';
-import { customerProfileSchema } from './gap-analysis';
+import { customerProfileSchema, mergeProfiles } from './gap-analysis';
 import type { CustomerProfile } from './types';
 import type { ClassificationResult } from '../xstate/state-evaluator';
 import { requireAuth } from '../auth/session';
+import { createSalesMachine } from '../xstate/sales-machine';
+import { createActor, waitFor } from 'xstate';
 
 // ── Zod Schema for Strategy Output ──
 
@@ -56,25 +58,33 @@ const strategyRequestSchema = z.object({
     confidence: z.enum(['high', 'medium', 'low']),
   }),
   customerId: z.string().optional(),
+  existingProfile: customerProfileSchema.partial().optional(),
 });
 
 /**
  * Server Action: 流式生成销售策略
- * 
+ *
  * 使用 RSC 模式：
  * 1. createStreamableValue 创建流式值
  * 2. streamObject 生成流式对象
  * 3. 返回 streamable value 给客户端
+ *
+ * M3 增强：
+ * - 接收 existingProfile 参数
+ * - 调用 mergeProfiles 合并画像
+ * - 使用 XState 状态机评估客户等级
+ * - 状态变更时调用 saveStateTransitionWithTransaction 写入数据库
  */
 export async function generateStrategyStream(
   profileData: Partial<CustomerProfile> | undefined,
   status: 'A' | 'B' | 'C' | 'D',
   classification: ClassificationResult,
-  customerId?: string
+  customerId?: string,
+  existingProfile?: Partial<CustomerProfile>
 ): Promise<ReturnType<typeof createStreamableValue<Strategy>>['value']> {
   // ✅ 认证检查（Server Action 也需要鉴权）
   await requireAuth();
-  
+
   // ✅ 状态一致性校验：以 classification.status 为准
   if (status !== classification.status) {
     console.warn('[Strategy Server] Status mismatch:', {
@@ -83,11 +93,40 @@ export async function generateStrategyStream(
       customerId,
     });
   }
-  
+
   const finalStatus = classification.status;
-  
+
   // ✅ 卫语句：profileData 可能为 undefined，提供默认空对象
   const safeProfileData = profileData || {};
+
+  // ✅ M3: 合并画像（如果提供了 existingProfile）
+  const mergedProfile = existingProfile
+    ? mergeProfiles(existingProfile, safeProfileData as CustomerProfile)
+    : safeProfileData;
+
+  // ✅ M3: 使用 XState 状态机评估客户等级并写入数据库
+  // 注意：这里使用 demo-tenant 作为 tenantId，实际应该从 session 获取
+  if (customerId) {
+    try {
+      const tenantId = 'demo-tenant'; // TODO: 从 session 获取真实 tenantId
+      const machine = createSalesMachine(tenantId, customerId, mergedProfile as CustomerProfile);
+      const actor = createActor(machine);
+      actor.start();
+      actor.send({ type: 'EVALUATE_PROFILE', profile: mergedProfile as CustomerProfile });
+
+      // 等待状态机完成
+      await waitFor(
+        actor,
+        (s) => s.status === 'done' || s.matches('error'),
+        { timeout: 30000 }
+      );
+
+      actor.stop();
+    } catch (error) {
+      console.error('[Strategy Server] State machine error:', error);
+      // 不阻塞流式生成，继续执行
+    }
+  }
   
   // 创建流式值
   const streamable = createStreamableValue<Strategy>();
@@ -101,7 +140,7 @@ export async function generateStrategyStream(
         prompt: `你是一位资深的汽车销售顾问。基于以下客户画像和分类信息，生成个性化的销售策略。
 
 客户画像：
-${buildContext(safeProfileData, finalStatus, classification)}
+${buildContext(mergedProfile as Partial<CustomerProfile>, finalStatus, classification)}
 
 客户分类：${finalStatus} 类
 分类原因：${classification.reason}

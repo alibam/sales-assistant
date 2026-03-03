@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.7.0-pg16
+    container_name: sales-assistant-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-sales_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_strong_password}
+      POSTGRES_DB: ${DB_NAME:-sales_assistant}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - sales_network
+
+  # 赠送一个轻量级图形化管理面板（可选，方便你查看数据）
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: sales-assistant-pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@vf-tech.cn
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+    ports:
+      - "127.0.0.1:5050:80"
+    networks:
+      - sales_network
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata: # 命名卷，确保数据持久化
+
+networks:
+  sales_network:
+    driver: bridge

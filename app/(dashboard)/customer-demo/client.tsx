@@ -31,15 +31,17 @@ export function CustomerDemoClient({ customer }: Props) {
 
   function handleGenerate() {
     if (!followUpText.trim()) return;
-    
+
     startTransition(async () => {
       try {
         // 调用真实的 Server Action，获取流式值
+        // 传递 customer.profile 作为 existingProfile
         const stream = await generateStrategyStream(
           customer.profile,
           customer.classification.status,
           customer.classification,
-          'demo-customer'
+          'demo-customer',
+          customer.profile // existingProfile
         );
         setStreamableValue(stream);
       } catch (err) {

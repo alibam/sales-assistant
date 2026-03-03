@@ -312,17 +312,25 @@ test.describe('M3 BDD: 长周期状态机与多轮对话', () => {
   test('Given 当前状态已是 B, When 再次评估仍为 B, Then 不应重复写入快照', async () => {
     test.skip(!dbReady, 'DB not available in this environment');
 
-    const before = await prisma.salesStateHistory.count({ where: { tenantId, customerId } });
-
     const stableBProfile = mergeProfiles(
       mergeProfiles(profileRoundD(), profileRoundC()),
       mergeProfiles(profileRoundB(), profileRoundBackToB()),
     );
-    const snapshot = await evaluateWithMachine(tenantId, customerId, stableBProfile);
 
-    expect(snapshot.matches('error')).toBeFalsy();
-    expect(snapshot.context.classification?.status).toBe('B');
+    // 第一次评估：A -> B（写入记录）
+    const firstSnapshot = await evaluateWithMachine(tenantId, customerId, stableBProfile);
+    expect(firstSnapshot.matches('error')).toBeFalsy();
+    expect(firstSnapshot.context.classification?.status).toBe('B');
 
+    // 记录第一次评估后的快照数量
+    const before = await prisma.salesStateHistory.count({ where: { tenantId, customerId } });
+
+    // 第二次评估：B -> B（幂等性，不应写入新记录）
+    const secondSnapshot = await evaluateWithMachine(tenantId, customerId, stableBProfile);
+    expect(secondSnapshot.matches('error')).toBeFalsy();
+    expect(secondSnapshot.context.classification?.status).toBe('B');
+
+    // 验证幂等性：记录数不变
     const after = await prisma.salesStateHistory.count({ where: { tenantId, customerId } });
     expect(after).toBe(before);
   });
