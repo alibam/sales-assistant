@@ -1,22 +1,26 @@
 import { Session } from '@/lib/auth/session';
+import { getCustomerStats, getFollowUpCustomers } from '../actions/stats';
 
 interface Props {
   session: Session;
 }
 
-export default function SalesRepDashboard({ session }: Props) {
-  // Mock 数据
-  const stats = {
-    A: 5,
-    B: 12,
-    C: 8,
-    D: 20,
-  };
+function formatRelativeTime(date: Date): string {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  const followUpList = [
-    { name: '张伟', status: 'B', lastContact: '2天前' },
-    { name: '李娜', status: 'C', lastContact: '5天前' },
-  ];
+  if (diffDays === 0) return '今天';
+  if (diffDays === 1) return '1天前';
+  return `${diffDays}天前`;
+}
+
+export default async function SalesRepDashboard({ session }: Props) {
+  // Fetch real data from database
+  const stats = await getCustomerStats();
+  const followUpList = await getFollowUpCustomers();
+
+  const totalCustomers = stats.A + stats.B + stats.C + stats.D;
 
   return (
     <div className="p-6">
@@ -45,13 +49,23 @@ export default function SalesRepDashboard({ session }: Props) {
       {/* 待跟进列表 */}
       <div className="bg-white p-4 rounded shadow">
         <h2 className="text-xl font-bold mb-4">待跟进客户</h2>
-        <ul>
-          {followUpList.map((customer, i) => (
-            <li key={i} className="py-2 border-b">
-              {customer.name} - {customer.status} 级 - {customer.lastContact}
-            </li>
-          ))}
-        </ul>
+        {followUpList.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {totalCustomers === 0 ? (
+              <p>暂无客户数据，请先添加客户</p>
+            ) : (
+              <p>暂无需要跟进的客户</p>
+            )}
+          </div>
+        ) : (
+          <ul>
+            {followUpList.map((customer) => (
+              <li key={customer.id} className="py-2 border-b">
+                {customer.name} - {customer.status} 级 - {formatRelativeTime(customer.updatedAt)}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

@@ -1,0 +1,199 @@
+🚀 Milestone 4 补充任务：真实业务逻辑层改造
+
+## 背景
+CEO 和首席架构师批准立即补充业务逻辑层。当前 Dashboard 只有 UI 骨架和 Mock 数据，违反了"逻辑层优先"原则。
+
+## 时间限制
+45 分钟内完成
+
+## 三大任务
+
+### 任务 1：编写安全的数据查询层 (Server Actions) ⚠️ 红线级别
+
+**文件位置：**
+- `app/(dashboard)/actions/stats.ts`
+
+**必须实现的方法：**
+
+1. `getCustomerStats()` - 获取客户统计
+   - 返回 A/B/C/D 四个等级的客户数量
+   - 必须按 tenantId 过滤
+   
+2. `getFollowUpCustomers()` - 获取待跟进客户列表
+   - 返回 B/C 级客户（需要跟进）
+   - 按 updatedAt 倒序排列
+   - 限制返回 10 条
+   - 必须按 tenantId 过滤
+
+3. `getSalesFunnel()` - 获取销售漏斗数据（Manager 用）
+   - 返回各阶段客户数量和转化率
+   - 必须按 tenantId 过滤
+
+4. `getAlerts()` - 获取异常卡点警告（Manager 用）
+   - 返回长时间未跟进的客户
+   - 必须按 tenantId 过滤
+
+**🚨 绝对红线（违反即回滚）：**
+```typescript
+// ❌ 绝对禁止！没有 tenantId 过滤的查询
+await prisma.customer.findMany({
+  where: { status: 'A' }  // 危险！会泄露其他租户数据
+});
+
+// ✅ 正确！必须包含 tenantId
+await prisma.customer.findMany({
+  where: { 
+    tenantId: session.tenantId,  // 必须！
+    status: 'A' 
+  }
+});
+```
+
+**类型安全要求：**
+- 所有函数必须有明确的返回类型
+- 使用 Prisma 生成的类型，不要用 `any`
+- 错误处理必须完善（try-catch）
+
+---
+
+### 任务 2：将真实数据注入 Super Dashboard
+
+**需要修改的文件：**
+1. `app/(dashboard)/components/SalesRepDashboard.tsx`
+2. `app/(dashboard)/components/ManagerDashboard.tsx`
+3. `app/(dashboard)/components/AdminDashboard.tsx`（可选，暂时保持 Mock）
+
+**改造要求：**
+
+1. **将组件改为异步 Server Component**
+   ```typescript
+   // ❌ 旧的同步组件
+   export default function SalesRepDashboard({ session }: Props) {
+     const stats = { A: 5, B: 12, C: 8, D: 20 }; // Mock
+   }
+   
+   // ✅ 新的异步组件
+   export default async function SalesRepDashboard({ session }: Props) {
+     const stats = await getCustomerStats();
+     const followUpList = await getFollowUpCustomers();
+   }
+   ```
+
+2. **优雅的空状态处理**
+   - 如果没有客户数据，显示友好的空状态提示
+   - 不要显示 "0 0 0 0"，而是显示引导文案
+
+3. **保持 UI 结构不变**
+   - 不要改变现有的 Tailwind 布局
+   - 只替换数据源，不改 UI
+
+---
+
+### 任务 3：编写测试验证数据逻辑
+
+**测试策略：**
+
+**选项 A（推荐）：E2E 测试验证真实数据**
+- 修改现有的 `tests/dashboard-role-routing.spec.ts`
+- 验证页面显示的数字是真实的（不是 Mock 的固定值）
+- 验证不同租户看到不同的数据
+
+**选项 B：单元测试 Server Actions**
+- 创建 `tests/unit/dashboard-stats.test.ts`
+- 使用 Jest 测试 Server Actions
+- Mock Prisma Client
+
+**最低要求：**
+- 至少验证数据是从数据库查询的（不是硬编码）
+- 验证 tenantId 隔离生效
+
+---
+
+## 验收标准
+
+### 必须通过的检查：
+
+1. **TypeScript 类型检查**
+   ```bash
+   npx tsc --noEmit
+   ```
+   必须无错误
+
+2. **E2E 测试**
+   ```bash
+   npx playwright test tests/dashboard-role-routing.spec.ts
+   ```
+   必须 3/3 通过
+
+3. **手动验证**
+   - 启动服务后访问 Dashboard
+   - 数据应该是真实的（从数据库查询）
+   - 不同角色看到不同的数据
+
+4. **安全审查**
+   - 所有 Prisma 查询必须包含 `tenantId` 过滤
+   - 使用 grep 检查：
+   ```bash
+   grep -r "prisma\." app/(dashboard)/actions/ | grep -v "tenantId"
+   ```
+   应该没有结果（或只有安全的查询）
+
+---
+
+## 关键提示
+
+1. **Session 获取**
+   ```typescript
+   import { requireAuth } from '@/lib/auth/session';
+   
+   export async function getCustomerStats() {
+     const session = await requireAuth();
+     // session.tenantId 可用
+   }
+   ```
+
+2. **Prisma Client 导入**
+   ```typescript
+   import { prisma } from '@/lib/db/client';
+   ```
+
+3. **错误处理**
+   ```typescript
+   try {
+     const data = await prisma.customer.findMany(...);
+     return data;
+   } catch (error) {
+     console.error('[Dashboard Stats] Error:', error);
+     return []; // 返回空数组，不要让页面崩溃
+   }
+   ```
+
+4. **性能优化**
+   - 使用 `groupBy` 进行统计查询
+   - 使用 `select` 只查询需要的字段
+   - 添加合适的索引（已在 schema 中定义）
+
+---
+
+## 时间分配建议
+
+- 任务 1（Server Actions）：20 分钟
+- 任务 2（注入真实数据）：15 分钟
+- 任务 3（测试验证）：10 分钟
+
+总计：45 分钟
+
+---
+
+## 完成后的汇报格式
+
+请提供：
+1. 创建/修改的文件列表
+2. TypeScript 检查结果
+3. 测试运行结果（截图或日志）
+4. 安全审查结果（grep 检查）
+5. 简短的实现说明
+
+---
+
+立即开始！CEO 在等待一个真正活过来的 Super Dashboard！
