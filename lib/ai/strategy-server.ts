@@ -106,10 +106,9 @@ export async function generateStrategyStream(
     : safeProfileData;
 
   // ✅ M3: 使用 XState 状态机评估客户等级并写入数据库
-  // 注意：这里使用 demo-tenant 作为 tenantId，实际应该从 session 获取
   if (customerId) {
     try {
-      const tenantId = 'demo-tenant'; // TODO: 从 session 获取真实 tenantId
+      const tenantId = '00000000-0000-0000-0000-000000000001'; // Demo tenant UUID
       const machine = createSalesMachine(tenantId, customerId, mergedProfile as CustomerProfile);
       const actor = createActor(machine);
       actor.start();

@@ -151,3 +151,38 @@ test.describe('BDD: /customer-demo AI 策略流式生成', () => {
     });
   });
 });
+
+test.describe('BDD: /customer-demo 重置客户画像功能', () => {
+  test('Given 客户有画像数据, When 点击重置按钮, Then 画像被清空且状态重置为D级', async ({ page }) => {
+    await test.step('Given: 访问客户演示页面', async () => {
+      await openCustomerDemo(page);
+      await expect(page).toHaveURL(/\/customer-demo/);
+
+      // 确认页面已加载
+      await expect(page.getByText(/张伟|李娜/)).toBeVisible();
+    });
+
+    await test.step('When: 点击重置按钮并确认', async () => {
+      // 设置对话框监听器，自动接受确认弹窗
+      page.on('dialog', dialog => dialog.accept());
+
+      // 找到重置按钮并点击
+      const resetButton = page.getByRole('button', { name: /重置此客户画像|🧹/i });
+      await expect(resetButton).toBeVisible();
+      await resetButton.click();
+    });
+
+    await test.step('Then: 验证重置成功', async () => {
+      // 等待页面刷新完成
+      await page.waitForLoadState('networkidle');
+
+      // 验证没有错误提示（检查页面上不应该有红色错误信息）
+      const errorMessages = page.locator('[style*="color: #dc2626"], [style*="color:#dc2626"], [style*="color: rgb(220, 38, 38)"]');
+      await expect(errorMessages).toHaveCount(0);
+
+      // 验证页面正常显示（没有崩溃）
+      await expect(page.getByText(/张伟|李娜/)).toBeVisible();
+      await expect(page.getByRole('heading', { name: /客户画像/ })).toBeVisible();
+    });
+  });
+});

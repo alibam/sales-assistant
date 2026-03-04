@@ -44,7 +44,7 @@ export function CustomerDemoClient({ customer }: Props) {
           customer.profile,
           customer.classification.status,
           customer.classification,
-          'demo-customer',
+          '00000000-0000-0000-0000-000000000003',
           customer.profile, // existingProfile
           customer.name // customerName
         );
@@ -62,7 +62,7 @@ export function CustomerDemoClient({ customer }: Props) {
 
     setIsResetting(true);
     try {
-      const result = await resetCustomerProfile('demo-customer');
+      const result = await resetCustomerProfile('00000000-0000-0000-0000-000000000003');
       if (result.success) {
         alert('✅ 客户画像已重置');
         router.refresh();

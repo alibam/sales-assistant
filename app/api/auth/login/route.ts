@@ -16,18 +16,18 @@ import { Session, signToken } from '@/lib/auth/session';
 // Mock 用户数据库（生产环境应查询真实数据库）
 const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
   'demo-user': {
-    userId: 'demo-user-id',
-    tenantId: 'demo-tenant-id',
+    userId: '00000000-0000-0000-0000-000000000002',
+    tenantId: '00000000-0000-0000-0000-000000000001',
     role: 'SALES_REP',
   },
   'manager-user': {
-    userId: 'manager-user-id',
-    tenantId: 'demo-tenant-id',
+    userId: '00000000-0000-0000-0000-000000000004',
+    tenantId: '00000000-0000-0000-0000-000000000001',
     role: 'SALES_MANAGER',
   },
   'admin-user': {
-    userId: 'admin-user-id',
-    tenantId: 'admin-tenant-id',
+    userId: '00000000-0000-0000-0000-000000000005',
+    tenantId: '00000000-0000-0000-0000-000000000006',
     role: 'TENANT_ADMIN',
   },
 };

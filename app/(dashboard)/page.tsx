@@ -47,8 +47,8 @@ export default async function DashboardPage() {
           快速导航
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <Link 
-            href="/customer/demo-customer-id"
+          <Link
+            href="/customer/00000000-0000-0000-0000-000000000003"
             style={{
               padding: '12px 16px',
               background: '#2563eb',
