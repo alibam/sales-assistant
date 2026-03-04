@@ -1,0 +1,261 @@
+🚨 紧急修复：Next.js 缓存失效 Bug
+
+## 背景
+
+CEO 压测打回！"重置此画像"功能存在严重的 Next.js 缓存失效（Cache Invalidation）Bug！
+
+**问题现象**：
+- 点击"重置此画像"按钮
+- 提示成功
+- 但页面数据根本不刷新，依然停留在 B 级
+- 没有回到 D 级
+
+**根本原因**：
+- Next.js RSC (React Server Components) 缓存没有被清除
+- React 客户端状态没有被刷新
+
+## 时间限制
+
+紧急修复，必须在 5 分钟内完成
+
+## 两大任务
+
+### 任务 1：后端强制清除路由缓存
+
+**文件位置**：`app/(dashboard)/customer-demo/actions.ts`
+
+**修复方案**：
+
+1. **引入 Next.js 缓存清除 API**
+
+```typescript
+import { revalidatePath } from 'next/cache';
+```
+
+2. **在 resetCustomerProfile 函数中调用 revalidatePath**
+
+```typescript
+export async function resetCustomerProfile(customerId: string) {
+  try {
+    const session = await requireAuth();
+    
+    // 验证 customerId 格式
+    if (!customerId || !isValidUUID(customerId)) {
+      return {
+        success: false,
+        message: '无效的客户 ID 格式',
+      };
+    }
+    
+    // 查找客户（必须包含租户隔离）
+    const customer = await prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        tenantId: session.tenantId,
+      },
+    });
+    
+    if (!customer) {
+      console.error('[Reset Customer Failed]: Customer not found', {
+        customerId,
+        tenantId: session.tenantId,
+      });
+      return {
+        success: false,
+        message: '找不到该客户（可能是租户隔离导致）',
+      };
+    }
+    
+    // 重置画像
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        profileData: {},
+        status: 'D',  // 重置为 D 级
+        updatedAt: new Date(),
+      },
+    });
+    
+    console.log('[Reset Customer Success]:', {
+      customerId,
+      tenantId: session.tenantId,
+    });
+    
+    // 🔥 关键修复：强制清除 Next.js 路由缓存
+    revalidatePath('/customer-demo');  // 如果是固定路由
+    // 或者
+    // revalidatePath(`/customer/${customerId}`, 'page');  // 如果是动态路由
+    
+    return {
+      success: true,
+      message: '画像已重置',
+    };
+  } catch (error) {
+    console.error('[Reset Customer Failed]:', error);
+    console.error('[Reset Customer Stack]:', (error as Error).stack);
+    
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : '重置失败',
+    };
+  }
+}
+```
+
+**关键点**：
+- `revalidatePath('/customer-demo')` - 清除固定路由的缓存
+- `revalidatePath('/customer/[id]', 'page')` - 清除动态路由的缓存
+- 必须在事务成功提交后、返回 `{ success: true }` 之前调用
+- 这会强制 Next.js 丢弃旧的 RSC 缓存
+
+---
+
+### 任务 2：前端强制重新渲染
+
+**文件位置**：`app/(dashboard)/customer-demo/client.tsx`
+
+**修复方案**：
+
+1. **引入 Next.js 路由刷新 API**
+
+```typescript
+'use client';
+
+import { useRouter } from 'next/navigation';
+```
+
+2. **在重置成功后强制刷新页面**
+
+```typescript
+const router = useRouter();
+
+const handleReset = async () => {
+  try {
+    setIsResetting(true);
+    
+    const result = await resetCustomerProfile(customer.id);
+    
+    if (result.success) {
+      toast.success('画像已重置');
+      
+      // 🔥 关键修复：强制刷新页面
+      // 方案 1：最稳妥的方式，彻底清空 React 内存里的残留状态
+      window.location.reload();
+      
+      // 方案 2：使用 Next.js 路由刷新（更优雅，但可能不够彻底）
+      // router.refresh();
+    } else {
+      toast.error(result.message || '重置失败');
+    }
+  } catch (error) {
+    console.error('[Reset Customer Failed]:', error);
+    toast.error('重置失败：' + (error as Error).message);
+  } finally {
+    // 注意：如果使用 window.location.reload()，这里不会执行
+    // 因为页面会立即刷新
+    setIsResetting(false);
+  }
+};
+```
+
+**两种刷新方案对比**：
+
+| 方案 | 优点 | 缺点 | 推荐度 |
+|------|------|------|--------|
+| `window.location.reload()` | 最稳妥，彻底清空所有状态 | 会重新加载整个页面，体验稍差 | ⭐⭐⭐⭐⭐ |
+| `router.refresh()` | 更优雅，只刷新 Server Components | 可能不够彻底，React 状态可能残留 | ⭐⭐⭐ |
+
+**推荐使用 `window.location.reload()`**，因为：
+- CEO 要求"彻底清空 React 内存里的残留状态"
+- 重置画像是低频操作，用户可以接受页面刷新
+- 最稳妥，不会有任何缓存残留
+
+---
+
+## 验收标准
+
+### 必须通过的检查：
+
+1. **TypeScript 类型检查**
+   ```bash
+   npx tsc --noEmit
+   ```
+
+2. **功能测试**
+   - 在客户详情页，客户当前状态为 B 级
+   - 点击"重置此画像"按钮
+   - 提示"画像已重置"
+   - **页面自动刷新**
+   - 客户状态变为 D 级
+   - 画像数据清空
+
+3. **缓存验证**
+   - 刷新页面后，客户状态依然是 D 级（不会回到 B 级）
+   - 说明后端缓存已清除
+
+---
+
+## 关键技术点
+
+### 1. Next.js 缓存机制
+
+Next.js 15 有多层缓存：
+- **Router Cache**：客户端路由缓存
+- **Full Route Cache**：服务端完整路由缓存
+- **Data Cache**：服务端数据缓存
+
+重置画像后，需要清除：
+- ✅ Full Route Cache（通过 `revalidatePath`）
+- ✅ Router Cache（通过 `window.location.reload()` 或 `router.refresh()`）
+
+### 2. revalidatePath 的使用
+
+```typescript
+// 固定路由
+revalidatePath('/customer-demo');
+
+// 动态路由（推荐）
+revalidatePath(`/customer/${customerId}`, 'page');
+
+// 清除所有相关路由
+revalidatePath('/customer', 'layout');  // 清除整个 /customer 布局下的所有页面
+```
+
+### 3. 为什么需要前端刷新
+
+即使后端调用了 `revalidatePath`，前端的 React 状态可能还保留着旧数据：
+- React 组件的 state
+- React Query 的缓存
+- 其他客户端状态管理
+
+所以需要前端强制刷新：
+- `window.location.reload()` - 彻底刷新
+- `router.refresh()` - 只刷新 Server Components
+
+---
+
+## 完成后的汇报格式
+
+请提供：
+
+1. **修改的文件列表**
+   - `app/(dashboard)/customer-demo/actions.ts`（修改）
+   - `app/(dashboard)/customer-demo/client.tsx`（修改）
+
+2. **TypeScript 检查结果**
+   ```bash
+   npx tsc --noEmit
+   ```
+
+3. **功能测试结果**
+   - 重置前：客户状态 B 级
+   - 点击重置：提示成功
+   - 重置后：页面刷新，客户状态 D 级
+
+4. **代码片段**
+   - 后端 `revalidatePath` 调用位置
+   - 前端 `window.location.reload()` 调用位置
+
+---
+
+立即开始！CEO 在等待压测验证！必须在 5 分钟内完成！

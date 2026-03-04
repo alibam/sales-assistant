@@ -47,7 +47,8 @@ export function CustomerDemoClient({ customer }: Props) {
           customer.classification,
           TEST_CUSTOMER_IDS.ZHANG_WEI, // Use Type-Safe fixture
           customer.profile, // existingProfile
-          customer.name // customerName
+          customer.name, // customerName
+          followUpText // followUpInput - 传入用户刚刚输入的跟进文本
         );
         setStreamableValue(stream);
       } catch (err) {
@@ -66,7 +67,8 @@ export function CustomerDemoClient({ customer }: Props) {
       const result = await resetCustomerProfile(TEST_CUSTOMER_IDS.ZHANG_WEI); // Use Type-Safe fixture
       if (result.success) {
         alert('✅ 客户画像已重置');
-        router.refresh();
+        // 🔥 关键修复：强制刷新页面，彻底清空 React 内存里的残留状态
+        window.location.reload();
       } else {
         alert(`❌ 重置失败: ${result.error}`);
       }

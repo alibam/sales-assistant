@@ -25,6 +25,7 @@ interface StrategyStreamerProps {
   classification: ClassificationResult;
   customerId: string;
   customerName?: string;
+  followUpInput?: string; // 新增：销售员当前的跟进原话
 }
 
 export function StrategyStreamer({
@@ -33,6 +34,7 @@ export function StrategyStreamer({
   classification,
   customerId,
   customerName,
+  followUpInput, // 新增参数
 }: StrategyStreamerProps) {
   const [isPending, startTransition] = useTransition();
   const [streamableValue, setStreamableValue] = useState<Awaited<ReturnType<typeof generateStrategyStream>> | null>(null);
@@ -46,13 +48,21 @@ export function StrategyStreamer({
   useEffect(() => {
     startTransition(async () => {
       try {
-        const result = await generateStrategyStream(profileData, status, classification, customerId, undefined, customerName);
+        const result = await generateStrategyStream(
+          profileData,
+          status,
+          classification,
+          customerId,
+          undefined,
+          customerName,
+          followUpInput // 传入跟进文本
+        );
         setStreamableValue(result);
       } catch (err) {
         console.error('[StrategyStreamer] Failed to start stream:', err);
       }
     });
-  }, [profileData, status, classification, customerId, customerName]);
+  }, [profileData, status, classification, customerId, customerName, followUpInput]);
   
   // 当 customerId 或 status 变化时，重置所有状态
   useEffect(() => {

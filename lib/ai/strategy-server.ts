@@ -83,7 +83,8 @@ export async function generateStrategyStream(
   classification: ClassificationResult,
   customerId?: string,
   existingProfile?: Partial<CustomerProfile>,
-  customerName?: string
+  customerName?: string,
+  followUpInput?: string  // 新增：销售员当前的跟进原话
 ): Promise<ReturnType<typeof createStreamableValue<Strategy>>['value']> {
   // ✅ 认证检查（Server Action 也需要鉴权）
   await requireAuth();
@@ -144,7 +145,7 @@ export async function generateStrategyStream(
 
       // ── M4: 向量检索与知识库注入 ──
 
-      // 1. 构造查询词：意向车型 + 竞品 + 最大卡点
+      // 1. 构造查询词：followUpInput（原汁原味的语料）+ 画像标签
       const queryParts: string[] = [];
 
       // 意向车型
@@ -165,19 +166,30 @@ export async function generateStrategyStream(
       // 客户状态
       queryParts.push(`客户状态: ${finalStatus}`);
 
-      const knowledgeQuery = queryParts.join(' ');
+      // 核心修复：followUpInput（原汁原味的语料）放在最前面
+      const knowledgeQuery = followUpInput?.trim()
+        ? `${followUpInput} ${queryParts.join(' ')}`
+        : queryParts.join(' ');
 
       // 2. 执行检索
       let knowledgeContext = '';
+      let relevantDocs: Array<{ content: string }> = [];
 
       if (knowledgeQuery.trim()) {
         try {
           const session = await requireAuth();
-          const relevantDocs = await searchRelevantKnowledge(
+          relevantDocs = await searchRelevantKnowledge(
             knowledgeQuery,
             session.tenantId,
             3 // Top 3 最相关的文档片段
           );
+
+          // 增加日志
+          console.log('[RAG Query]:', knowledgeQuery);
+          console.log('[RAG Hits]:', relevantDocs.length);
+          if (relevantDocs.length > 0) {
+            console.log('[RAG Content Preview]:', relevantDocs[0].content.substring(0, 100) + '...');
+          }
 
           if (relevantDocs.length > 0) {
             knowledgeContext = relevantDocs
@@ -206,7 +218,14 @@ ${knowledgeContext}
 
 以上是企业内部的绝密销售资料，包含产品优势、竞品对比、话术技巧等核心知识。
 你的策略建议必须优先基于这些资料，确保专业性和准确性。
-` : ''}
+
+⚠️ 重要指令：
+在策略摘要的开头，你必须用中括号标明 [RAG 诊断：成功命中 ${relevantDocs.length} 条内部知识片段]，
+并严格使用检索到的知识（如：底盘质保、星愿基金等）来生成策略。
+如果检索到的知识中包含具体的产品特性、优惠政策、话术技巧，你必须在策略中明确引用。
+` : `
+[RAG 诊断：未检索到相关知识片段，使用通用销售策略]
+`}
 
 客户画像：
 ${buildContext(mergedProfile as Partial<CustomerProfile>, finalStatus, classification)}

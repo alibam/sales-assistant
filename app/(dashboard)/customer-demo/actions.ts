@@ -5,8 +5,17 @@
  */
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+
+/**
+ * UUID 验证辅助函数
+ */
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
 
 /**
  * 重置客户画像
@@ -22,6 +31,15 @@ export async function resetCustomerProfile(customerId: string): Promise<{ succes
     // 认证检查
     const { tenantId } = await requireAuth();
 
+    // 验证 customerId 格式
+    if (!customerId || !isValidUUID(customerId)) {
+      console.error('[Reset Customer Failed]: Invalid customer ID format', { customerId });
+      return {
+        success: false,
+        error: '无效的客户 ID 格式',
+      };
+    }
+
     // 使用事务确保原子性
     await prisma.$transaction(async (tx) => {
       // 1. 验证客户存在且属于当前租户
@@ -33,7 +51,11 @@ export async function resetCustomerProfile(customerId: string): Promise<{ succes
       });
 
       if (!customer) {
-        throw new Error('客户不存在或无权访问');
+        console.error('[Reset Customer Failed]: Customer not found', {
+          customerId,
+          tenantId,
+        });
+        throw new Error('找不到该客户（可能是租户隔离导致）');
       }
 
       // 2. 删除该客户的所有状态历史记录
@@ -52,13 +74,20 @@ export async function resetCustomerProfile(customerId: string): Promise<{ succes
         data: {
           profileData: {},
           status: 'D',
+          updatedAt: new Date(),
         },
       });
     });
 
+    console.log('[Reset Customer Success]:', { customerId, tenantId });
+
+    // 🔥 关键修复：强制清除 Next.js 路由缓存
+    revalidatePath('/customer-demo');
+
     return { success: true };
   } catch (error) {
-    console.error('[Reset Customer] Error:', error);
+    console.error('[Reset Customer Failed]:', error);
+    console.error('[Reset Customer Stack]:', (error as Error).stack);
     return {
       success: false,
       error: error instanceof Error ? error.message : '重置失败',
