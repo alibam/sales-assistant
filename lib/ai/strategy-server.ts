@@ -19,6 +19,7 @@ import { requireAuth } from '../auth/session';
 import { createSalesMachine } from '../xstate/sales-machine';
 import { createActor, waitFor } from 'xstate';
 import { TEST_TENANT_IDS } from '../db/fixtures';
+import { searchRelevantKnowledge } from './retrieval';
 
 // ── Zod Schema for Strategy Output ──
 
@@ -141,6 +142,54 @@ export async function generateStrategyStream(
       // 构建阶段约束指令
       const stageConstraints = buildStageConstraints(finalStatus);
 
+      // ── M4: 向量检索与知识库注入 ──
+
+      // 1. 构造查询词：意向车型 + 竞品 + 最大卡点
+      const queryParts: string[] = [];
+
+      // 意向车型
+      if (mergedProfile.preference?.intent_model) {
+        queryParts.push(mergedProfile.preference.intent_model);
+      }
+
+      // 竞品信息
+      if (mergedProfile.competitor?.competing_models?.length) {
+        queryParts.push(`竞品: ${mergedProfile.competitor.competing_models.join(', ')}`);
+      }
+
+      // 最大卡点
+      if (mergedProfile.blockers?.main_blocker) {
+        queryParts.push(`卡点: ${mergedProfile.blockers.main_blocker}`);
+      }
+
+      // 客户状态
+      queryParts.push(`客户状态: ${finalStatus}`);
+
+      const knowledgeQuery = queryParts.join(' ');
+
+      // 2. 执行检索
+      let knowledgeContext = '';
+
+      if (knowledgeQuery.trim()) {
+        try {
+          const session = await requireAuth();
+          const relevantDocs = await searchRelevantKnowledge(
+            knowledgeQuery,
+            session.tenantId,
+            3 // Top 3 最相关的文档片段
+          );
+
+          if (relevantDocs.length > 0) {
+            knowledgeContext = relevantDocs
+              .map((doc, idx) => `[知识片段 ${idx + 1}]\n${doc.content}`)
+              .join('\n\n');
+          }
+        } catch (error) {
+          console.error('[Knowledge Retrieval] Error:', error);
+          // 检索失败不影响主流程，继续生成策略
+        }
+      }
+
       const result = await streamObject({
         model: getAIModel(),
         schema: strategySchema,
@@ -149,6 +198,15 @@ export async function generateStrategyStream(
 ${customerInfo}
 
 ${stageConstraints}
+
+${knowledgeContext ? `
+【企业内部知识库参考（你的策略必须优先且严格基于以下绝密资料生成）】
+
+${knowledgeContext}
+
+以上是企业内部的绝密销售资料，包含产品优势、竞品对比、话术技巧等核心知识。
+你的策略建议必须优先基于这些资料，确保专业性和准确性。
+` : ''}
 
 客户画像：
 ${buildContext(mergedProfile as Partial<CustomerProfile>, finalStatus, classification)}
