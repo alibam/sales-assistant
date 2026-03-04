@@ -60,7 +60,7 @@ export const TEST_USERS = {
   },
   DEMO_TENANT_ADMIN: {
     userId: TEST_USER_IDS.DEMO_TENANT_ADMIN,
-    tenantId: TEST_TENANT_IDS.SECONDARY,
+    tenantId: TEST_TENANT_IDS.AUTOMAX,
     role: 'TENANT_ADMIN' as const,
   },
 } as const;
