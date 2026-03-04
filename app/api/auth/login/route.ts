@@ -12,24 +12,14 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { Session, signToken } from '@/lib/auth/session';
+import { TEST_USERS } from '@/lib/db/fixtures';
 
 // Mock 用户数据库（生产环境应查询真实数据库）
+// 使用 Type-Safe Fixtures 确保数据符合 Prisma Schema 约束
 const MOCK_USERS: Record<string, Omit<Session, 'iat' | 'exp'>> = {
-  'demo-user': {
-    userId: '00000000-0000-0000-0000-000000000002',
-    tenantId: '00000000-0000-0000-0000-000000000001',
-    role: 'SALES_REP',
-  },
-  'manager-user': {
-    userId: '00000000-0000-0000-0000-000000000004',
-    tenantId: '00000000-0000-0000-0000-000000000001',
-    role: 'SALES_MANAGER',
-  },
-  'admin-user': {
-    userId: '00000000-0000-0000-0000-000000000005',
-    tenantId: '00000000-0000-0000-0000-000000000006',
-    role: 'TENANT_ADMIN',
-  },
+  'demo-user': TEST_USERS.DEMO_SALES_REP,
+  'manager-user': TEST_USERS.DEMO_SALES_MANAGER,
+  'admin-user': TEST_USERS.DEMO_TENANT_ADMIN,
 };
 
 /**

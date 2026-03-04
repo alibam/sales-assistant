@@ -6,6 +6,7 @@
  * Usage: npx tsx prisma/seed.ts
  */
 import { prisma, CustomerStatus } from "../lib/db/client";
+import { TEST_TENANT_IDS, TEST_CUSTOMER_IDS } from "../lib/db/fixtures";
 
 async function main(): Promise<void> {
   console.log("🌱 Seeding database...");
@@ -13,7 +14,7 @@ async function main(): Promise<void> {
   // --- Tenant ---
   const tenant = await prisma.tenant.create({
     data: {
-      id: '00000000-0000-0000-0000-000000000001',
+      id: TEST_TENANT_IDS.AUTOMAX,
       name: "AutoMax 4S Shop",
       settings: {
         locale: "zh-CN",
@@ -31,7 +32,7 @@ async function main(): Promise<void> {
   // --- Customers with diverse A/B/C/D states ---
   const customersData = [
     {
-      id: '00000000-0000-0000-0000-000000000003',
+      id: TEST_CUSTOMER_IDS.ZHANG_WEI,
       name: "张伟",
       email: "zhang.wei@example.com",
       phone: "13800001111",

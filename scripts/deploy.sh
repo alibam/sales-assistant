@@ -1,14 +1,17 @@
 #!/bin/bash
 # ============================================================================
-# Sales Assistant 部署脚本 (含 E2E 测试熔断机制)
-# 
+# Sales Assistant 部署脚本 (含物理熔断机制)
+#
 # 流程：
 # 1. 生成 Prisma 客户端
-# 2. 构建生产环境
-# 3. 运行 Playwright E2E 测试（熔断点）
-# 4. 重启 PM2 服务
-# 
+# 2. TypeScript 类型检查（熔断点 1）
+# 3. 构建生产环境（熔断点 2）
+# 4. 运行 Playwright E2E 测试（熔断点 3）
+# 5. 重启 PM2 服务
+#
 # 安全机制：
+# - 如果 TypeScript 类型检查失败，部署脚本立即 exit 1
+# - 如果生产构建失败，部署脚本立即 exit 1
 # - 如果 E2E 测试失败，部署脚本立即 exit 1
 # - 绝对不允许带病重启 PM2 进程
 # ============================================================================
@@ -26,17 +29,46 @@ cd "$PROJECT_DIR"
 
 # 步骤 1: 生成 Prisma 客户端
 echo ""
-echo "📦 步骤 1/4: 生成 Prisma 客户端..."
+echo "📦 步骤 1/5: 生成 Prisma 客户端..."
 npx prisma generate
 
-# 步骤 2: 构建生产环境
+# 步骤 2: TypeScript 类型检查（熔断点 1）
 echo ""
-echo "🏗️  步骤 2/4: 构建生产环境..."
-npm run build
+echo "🔍 步骤 2/5: TypeScript 类型检查..."
+echo "⚠️  如果类型检查失败，部署将立即终止！"
+echo ""
 
-# 步骤 3: 运行 E2E 测试（熔断点）
+if ! npx tsc --noEmit; then
+    echo ""
+    echo "❌ TypeScript 类型检查失败！"
+    echo "🚫 部署已终止，PM2 未重启"
+    echo "请修复类型错误后重新部署"
+    exit 1
+fi
+
 echo ""
-echo "🧪 步骤 3/4: 运行 E2E 测试..."
+echo "✅ TypeScript 类型检查通过！"
+
+# 步骤 3: 构建生产环境（熔断点 2）
+echo ""
+echo "🏗️  步骤 3/5: 构建生产环境..."
+echo "⚠️  如果构建失败，部署将立即终止！"
+echo ""
+
+if ! npm run build; then
+    echo ""
+    echo "❌ 生产构建失败！"
+    echo "🚫 部署已终止，PM2 未重启"
+    echo "请修复构建错误后重新部署"
+    exit 1
+fi
+
+echo ""
+echo "✅ 生产构建成功！"
+
+# 步骤 4: 运行 E2E 测试（熔断点 3）
+echo ""
+echo "🧪 步骤 4/5: 运行 E2E 测试..."
 echo "⚠️  如果测试失败，部署将立即终止！"
 echo ""
 
@@ -54,9 +86,9 @@ fi
 echo ""
 echo "✅ E2E 测试通过！"
 
-# 步骤 4: 重启 PM2 服务
+# 步骤 5: 重启 PM2 服务
 echo ""
-echo "🔄 步骤 4/4: 重启 PM2 服务..."
+echo "🔄 步骤 5/5: 重启 PM2 服务..."
 pm2 restart "$APP_NAME" --update-env
 
 # 等待服务启动

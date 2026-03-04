@@ -5,6 +5,7 @@
  */
 import { requireAuth } from '@/lib/auth/session';
 import Link from 'next/link';
+import { TEST_CUSTOMER_IDS } from '@/lib/db/fixtures';
 
 export default async function DashboardPage() {
   // 验证登录状态
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
         </h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <Link
-            href="/customer/00000000-0000-0000-0000-000000000003"
+            href={`/customer/${TEST_CUSTOMER_IDS.ZHANG_WEI}`}
             style={{
               padding: '12px 16px',
               background: '#2563eb',

@@ -18,6 +18,7 @@ import type { ClassificationResult } from '../xstate/state-evaluator';
 import { requireAuth } from '../auth/session';
 import { createSalesMachine } from '../xstate/sales-machine';
 import { createActor, waitFor } from 'xstate';
+import { TEST_TENANT_IDS } from '../db/fixtures';
 
 // ── Zod Schema for Strategy Output ──
 
@@ -108,7 +109,7 @@ export async function generateStrategyStream(
   // ✅ M3: 使用 XState 状态机评估客户等级并写入数据库
   if (customerId) {
     try {
-      const tenantId = '00000000-0000-0000-0000-000000000001'; // Demo tenant UUID
+      const tenantId = TEST_TENANT_IDS.AUTOMAX; // Use Type-Safe fixture
       const machine = createSalesMachine(tenantId, customerId, mergedProfile as CustomerProfile);
       const actor = createActor(machine);
       actor.start();

@@ -12,6 +12,7 @@ import { generateStrategyStream, type Strategy } from '@/lib/ai/strategy-server'
 import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
 import { resetCustomerProfile } from './actions';
+import { TEST_CUSTOMER_IDS } from '@/lib/db/fixtures';
 
 interface SeedCustomer {
   name: string;
@@ -44,7 +45,7 @@ export function CustomerDemoClient({ customer }: Props) {
           customer.profile,
           customer.classification.status,
           customer.classification,
-          '00000000-0000-0000-0000-000000000003',
+          TEST_CUSTOMER_IDS.ZHANG_WEI, // Use Type-Safe fixture
           customer.profile, // existingProfile
           customer.name // customerName
         );
@@ -62,7 +63,7 @@ export function CustomerDemoClient({ customer }: Props) {
 
     setIsResetting(true);
     try {
-      const result = await resetCustomerProfile('00000000-0000-0000-0000-000000000003');
+      const result = await resetCustomerProfile(TEST_CUSTOMER_IDS.ZHANG_WEI); // Use Type-Safe fixture
       if (result.success) {
         alert('✅ 客户画像已重置');
         router.refresh();

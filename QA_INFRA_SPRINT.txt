@@ -1,0 +1,202 @@
+🚨 QA 基建整风 Sprint - 四大基建任务
+
+CEO 指令：在"重置按钮"事故后，系统暴露出极其严重的工程隐患。必须立即进入 QA 基建整风，彻底根除野鸡 Mock 数据和缺失的测试覆盖。
+
+---
+
+## 任务 1：彻底根除野鸡 Mock 数据（建立 Type-Safe Fixtures）
+
+**目标：**
+1. 全局搜索代码库中的 "demo-tenant-id"、"demo-user-id" 等非标 UUID 字符串
+2. 在 lib/db/ 下建立合法的种子数据/测试工厂逻辑
+3. 确保所有的 Mock 登录、测试上下文，全部使用严格符合 Prisma Schema 规范的 UUID
+4. 推荐使用标准 UUID 格式：123e4567-e89b-12d3-a456-426614174000
+
+**要求：**
+- 创建 `lib/db/fixtures.ts` 或 `lib/db/test-factory.ts`
+- 导出 Type-Safe 的测试数据工厂函数
+- 所有 Mock 数据必须符合 Prisma Schema 的类型约束
+- 替换所有野鸡 Mock 字符串为合法 UUID
+
+**检查点：**
+- 搜索 "demo-" 前缀的字符串，确保全部替换
+- 确保 Prisma 查询不会因为 UUID 类型错误而崩溃
+
+---
+
+## 任务 2：补齐缺失的 E2E 测试
+
+**目标：**
+为刚刚上线的"重置此客户画像"功能编写完整的 Playwright BDD 测试。
+
+**测试文件：** tests/customer-demo.spec.ts
+
+**测试用例：**
+```typescript
+test('Given 客户有画像数据, When 点击重置按钮, Then 画像被清空且状态重置为D级', async ({ page }) => {
+  // Given: 访问页面，确认有画像数据
+  await page.goto('/customer-demo');
+  
+  // When: 点击重置按钮并确认
+  page.on('dialog', dialog => dialog.accept());
+  await page.click('text=🧹 重置此客户画像');
+  
+  // Then: 验证重置成功
+  await page.waitForLoadState('networkidle');
+  
+  // 断言 1: 页面状态清空并回到 D 级
+  await expect(page.locator('text=D 级')).toBeVisible();
+  
+  // 断言 2: 数据库层面确认没有历史记录残留
+  // 可以通过 API 调用或数据库查询验证
+});
+```
+
+**断言必须包含：**
+1. 点击重置 → 页面状态清空并回到 D 级
+2. 数据库层面确认没有历史记录残留
+3. 无错误提示
+
+**验证：**
+- 运行 `npx playwright test tests/customer-demo.spec.ts`
+- 确保测试 100% 通过
+
+---
+
+## 任务 3：升级部署脚本的"物理熔断"
+
+**目标：**
+修改 scripts/deploy.sh，确保在上线前进行严格的质量检查。
+
+**要求：**
+1. 在部署前运行 `npx playwright test`
+2. 在部署前运行 `npx tsc --noEmit`（TypeScript 类型检查）
+3. 如果任何检查失败，绝对不允许重启 PM2 进程
+4. 输出清晰的错误信息，告知哪个检查失败
+
+**示例脚本：**
+```bash
+#!/bin/bash
+set -e
+
+echo "🔍 Running TypeScript type check..."
+npx tsc --noEmit || {
+  echo "❌ TypeScript compilation failed! Deployment aborted."
+  exit 1
+}
+
+echo "🧪 Running E2E tests..."
+npx playwright test || {
+  echo "❌ E2E tests failed! Deployment aborted."
+  exit 1
+}
+
+echo "📦 Building production..."
+npm run build || {
+  echo "❌ Build failed! Deployment aborted."
+  exit 1
+}
+
+echo "🚀 Restarting PM2..."
+npx pm2 restart sales-assistant
+
+echo "✅ Deployment successful!"
+```
+
+**检查点：**
+- 确保脚本有执行权限：`chmod +x scripts/deploy.sh`
+- 测试脚本：故意引入一个 TypeScript 错误，确认部署被阻止
+
+---
+
+## 任务 4：更新系统提示词（自我规训）
+
+**目标：**
+在 PROJECT_RULES.md 的顶部加入极其严厉的红线规则。
+
+**文件：** PROJECT_RULES.md（如果不存在则创建）
+
+**内容：**
+```markdown
+# PROJECT_RULES.md - 项目开发红线
+
+## 🚨 红线规则（不可违背）
+
+### 红线 1：测试覆盖强制要求
+
+**任何涉及 UI 交互、路由跳转、数据库写入的 PR，如果未同时包含对应的 Playwright 或 Jest 测试用例，作为 CTO 的 OpenClaw 必须拒绝执行合并和部署。**
+
+**具体要求：**
+- UI 交互（按钮点击、表单提交）→ Playwright E2E 测试
+- 路由跳转（页面导航）→ Playwright E2E 测试
+- 数据库写入（CRUD 操作）→ Jest 单元测试 + Playwright E2E 测试
+- API 端点 → Jest 集成测试
+
+**违反后果：**
+- PR 被拒绝
+- 部署被阻止
+- 代码回滚
+
+### 红线 2：Type-Safe Mock 数据
+
+**所有 Mock 数据必须符合 Prisma Schema 的类型约束。禁止使用野鸡字符串（如 "demo-tenant-id"）作为 UUID。**
+
+**具体要求：**
+- 使用 `lib/db/fixtures.ts` 中的 Type-Safe 工厂函数
+- 所有 UUID 必须是标准格式（8-4-4-4-12）
+- Mock 数据必须通过 TypeScript 类型检查
+
+### 红线 3：部署前质量检查
+
+**部署脚本必须包含以下检查，任何一项失败都不允许重启 PM2：**
+1. TypeScript 类型检查（`npx tsc --noEmit`）
+2. E2E 测试（`npx playwright test`）
+3. 生产构建（`npm run build`）
+
+---
+
+## 开发流程
+
+1. **开发新功能**
+   - 编写功能代码
+   - 编写对应的测试用例
+   - 运行测试确保通过
+
+2. **提交 PR**
+   - 确保包含测试用例
+   - 确保所有测试通过
+   - 确保 TypeScript 类型检查通过
+
+3. **部署上线**
+   - 运行 `scripts/deploy.sh`
+   - 脚本会自动进行质量检查
+   - 检查通过后才会重启服务
+
+---
+
+**记住：质量第一，速度第二。没有测试的代码不是完成的代码。**
+```
+
+---
+
+## 执行顺序
+
+1. 先执行任务 1（根除野鸡 Mock 数据）
+2. 再执行任务 2（补齐 E2E 测试）
+3. 然后执行任务 3（升级部署脚本）
+4. 最后执行任务 4（更新系统提示词）
+
+## 验证要求
+
+- 所有 Playwright 测试必须 100% 通过
+- TypeScript 类型检查必须通过
+- 部署脚本必须能够正确阻止有问题的部署
+
+## 完成标准
+
+- ✅ 代码库中没有野鸡 Mock 字符串
+- ✅ 所有新功能都有对应的 E2E 测试
+- ✅ 部署脚本包含物理熔断机制
+- ✅ PROJECT_RULES.md 包含红线规则
+
+立即开始执行！这是 CEO 的最高优先级指令！
