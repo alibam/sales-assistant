@@ -20,7 +20,6 @@ import { verifyToken } from '@/lib/auth/session';
  * 不需要认证的公开路径（精确匹配）
  */
 const PUBLIC_PATHS = [
-  '/',
   '/login',
 ];
 

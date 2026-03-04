@@ -25,6 +25,7 @@ model Tenant {
 
   customers         Customer[]
   salesStateHistory SalesStateHistory[]
+  knowledgeBases    KnowledgeBase[]
 
   @@map("tenants")
 }
@@ -79,4 +80,42 @@ model SalesStateHistory {
   @@index([tenantId], map: "idx_sales_history_tenant_id")
   @@index([tenantId, customerId], map: "idx_sales_history_tenant_customer")
   @@map("sales_state_history")
+}
+
+/// @description Knowledge base for RAG (Retrieval-Augmented Generation).
+/// Each tenant can have multiple knowledge bases for different purposes.
+model KnowledgeBase {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks DocumentChunk[]
+
+  @@index([tenantId], map: "idx_knowledge_base_tenant_id")
+  @@map("knowledge_bases")
+}
+
+/// @description Document chunks with vector embeddings for semantic search.
+/// Uses Qwen3-embedding (1024 dimensions) for private deployment.
+model DocumentChunk {
+  id              String                       @id @default(uuid()) @db.Uuid
+  tenantId        String                       @map("tenant_id") @db.Uuid
+  knowledgeBaseId String                       @map("knowledge_base_id") @db.Uuid
+  content         String                       @db.Text
+  /// @description Metadata: document source, page number, etc.
+  metadata        Json?
+  /// @description Vector embedding from Qwen3-embedding (1024 dimensions)
+  embedding       Unsupported("vector(1024)")?
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+
+  knowledgeBase KnowledgeBase @relation(fields: [knowledgeBaseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_document_chunk_tenant_id")
+  @@index([knowledgeBaseId], map: "idx_document_chunk_kb_id")
+  @@map("document_chunks")
 }

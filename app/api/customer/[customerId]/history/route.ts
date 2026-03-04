@@ -12,13 +12,13 @@ import { requireAuth } from '@/lib/auth/session';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { customerId: string } }
+  { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
     // Verify authentication
     const session = await requireAuth();
 
-    const { customerId } = params;
+    const { customerId } = await params;
 
     // Fetch customer history from database
     const history = await prisma.salesStateHistory.findMany({
