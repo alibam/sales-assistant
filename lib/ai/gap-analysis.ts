@@ -79,6 +79,40 @@ export const customerProfileSchema = z.object({
   blockers: blockersSchema.optional(),
 });
 
+/** Field weights for weighted completeness calculation */
+export const FIELD_WEIGHTS: Record<string, number> = {
+  // High priority (weight 3) - critical for classification
+  'budget_payment.budget_limit': 3,
+  'preference.intent_model': 3,
+  'decision_unit.decision_maker_involved': 3,
+  'timing.delivery_timeline': 3,
+
+  // Medium priority (weight 2) - important context
+  'scene.usage_scenario': 2,
+  'decision_unit.payer': 2,
+  'competitor.competing_models': 2,
+  'blockers.main_blocker': 2,
+
+  // Low priority (weight 1) - nice to have
+  'scene.key_motives': 1,
+  'scene.must_haves': 1,
+  'scene.compromisable': 1,
+  'preference.config_preference': 1,
+  'preference.color_and_inventory': 1,
+  'budget_payment.payment_method': 1,
+  'budget_payment.price_sensitivity': 1,
+  'timing.trigger_event': 1,
+  'decision_unit.family_visit_required': 1,
+  'decision_unit.objection_source': 1,
+  'competitor.has_quote': 1,
+  'competitor.main_conflict': 1,
+  'deal_factors.trade_in_info': 1,
+  'deal_factors.finance_info': 1,
+  'deal_factors.delivery_acceptance': 1,
+  'blockers.intensity': 1,
+  'blockers.needs_manager': 1,
+};
+
 /** Fields considered critical for A/B/C/D classification */
 const CRITICAL_FIELDS = new Set([
   'budget_payment.budget_limit',
@@ -124,12 +158,22 @@ ${input}`,
 }
 
 /**
+ * Get field weight from FIELD_WEIGHTS configuration.
+ * Defaults to 1 if not specified.
+ */
+function getFieldWeight(section: string, field: string): number {
+  const fieldPath = `${section}.${field}`;
+  return FIELD_WEIGHTS[fieldPath] ?? 1;
+}
+
+/**
  * Compare extracted profile against required fields in profile_schema.json.
  * Identifies missing required fields (the "gaps").
+ * Now uses weighted priority based on FIELD_WEIGHTS.
  *
  * @param profile - The current (merged) customer profile
  * @param schema - The profile schema configuration
- * @returns List of missing fields with metadata
+ * @returns List of missing fields with metadata, sorted by priority
  */
 export function findProfileGaps(
   profile: CustomerProfile,
@@ -153,15 +197,16 @@ export function findProfileGaps(
     if (!isMissing) continue;
 
     const fieldPath = `${section}.${field}`;
-    const isCritical = CRITICAL_FIELDS.has(fieldPath);
+    const weight = getFieldWeight(section, field);
     const isRootRequired = rootRequired.has(section) && isRequired;
 
+    // Determine priority based on weight
     let priority: ProfileGap['priority'] = 'normal';
-    if (isCritical) priority = 'critical';
-    else if (isRootRequired) priority = 'high';
+    if (weight >= 3) priority = 'critical';
+    else if (weight >= 2) priority = 'high';
 
     // Only report required fields and critical fields as gaps
-    if (isRequired || isCritical) {
+    if (isRequired || weight >= 2) {
       gaps.push({
         section,
         sectionTitle,
@@ -208,6 +253,61 @@ export function mergeProfiles(
 }
 
 /**
+ * Generate actionable next steps based on missing fields.
+ * Returns up to 3 specific recommendations.
+ *
+ * @param gaps - List of identified profile gaps
+ * @returns Array of actionable next steps
+ */
+export function generateNextSteps(gaps: ProfileGap[]): string[] {
+  if (gaps.length === 0) {
+    return ['客户画像已完整，可以进入策略生成阶段'];
+  }
+
+  const steps: string[] = [];
+  const topGaps = gaps.slice(0, 3);
+
+  for (const gap of topGaps) {
+    let step = '';
+    const fieldPath = `${gap.section}.${gap.field}`;
+
+    // Generate specific action based on field
+    switch (fieldPath) {
+      case 'budget_payment.budget_limit':
+        step = '询问客户的预算范围（落地价或月供上限）';
+        break;
+      case 'preference.intent_model':
+        step = '确认客户的意向车型或车型级别';
+        break;
+      case 'decision_unit.decision_maker_involved':
+        step = '确认最终拍板人是否已参与沟通';
+        break;
+      case 'timing.delivery_timeline':
+        step = '了解客户的计划提车时间';
+        break;
+      case 'scene.usage_scenario':
+        step = '询问客户的主要用车场景';
+        break;
+      case 'decision_unit.payer':
+        step = '确认实际出钱人是谁';
+        break;
+      case 'competitor.competing_models':
+        step = '了解客户还在对比哪些竞品车型';
+        break;
+      case 'blockers.main_blocker':
+        step = '识别当前促单的最大卡点';
+        break;
+      default:
+        step = `补充信息：${gap.description}`;
+    }
+
+    steps.push(step);
+  }
+
+  return steps.slice(0, 3);
+}
+
+/**
  * Generate a friendly, natural language follow-up question for the sales rep.
  * Prioritizes critical fields (budget, decision_maker, timeframe).
  *
@@ -234,7 +334,8 @@ export function generateFollowUpPrompt(gaps: ProfileGap[]): string {
 }
 
 /**
- * Calculate profile completeness as a percentage.
+ * Calculate profile completeness as a weighted percentage.
+ * Uses FIELD_WEIGHTS to prioritize critical fields.
  *
  * @param profile - Current customer profile
  * @param schema - Profile schema
@@ -245,9 +346,13 @@ export function calculateCompleteness(
   schema: ProfileSchema,
 ): number {
   const allFields = getAllFields(schema);
-  let filled = 0;
+  let totalWeight = 0;
+  let filledWeight = 0;
 
   for (const { section, field } of allFields) {
+    const weight = getFieldWeight(section, field);
+    totalWeight += weight;
+
     const sectionData = profile[section as keyof CustomerProfile] as Record<string, unknown> | undefined;
     const value = sectionData?.[field];
     const isFilled =
@@ -255,10 +360,13 @@ export function calculateCompleteness(
       value !== null &&
       value !== '' &&
       !(Array.isArray(value) && value.length === 0);
-    if (isFilled) filled++;
+
+    if (isFilled) {
+      filledWeight += weight;
+    }
   }
 
-  return Math.round((filled / allFields.length) * 100);
+  return totalWeight > 0 ? Math.round((filledWeight / totalWeight) * 100) : 0;
 }
 
 /**
@@ -290,11 +398,15 @@ export async function runGapAnalysis(
   // Step 5: Calculate completeness
   const completeness = calculateCompleteness(mergedProfile, schema);
 
+  // Step 6: Generate next steps
+  const nextSteps = generateNextSteps(gaps);
+
   return {
     extractedProfile,
     mergedProfile,
     gaps,
     followUpPrompt,
     completeness,
+    nextSteps,
   };
 }

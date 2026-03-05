@@ -132,4 +132,6 @@ export interface GapAnalysisResult {
   followUpPrompt: string;
   /** Profile completeness percentage */
   completeness: number;
+  /** Actionable next steps (up to 3) */
+  nextSteps: string[];
 }

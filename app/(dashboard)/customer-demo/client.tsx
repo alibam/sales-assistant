@@ -11,8 +11,9 @@ import { useRouter } from 'next/navigation';
 import { generateStrategyStream, type Strategy } from '@/lib/ai/strategy-server';
 import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
-import { resetCustomerProfile } from './actions';
+import { resetCustomerProfile, handleFollowUp } from './actions';
 import { TEST_CUSTOMER_IDS } from '@/lib/db/fixtures';
+import type { ProfileGap } from '@/lib/ai/types';
 
 interface SeedCustomer {
   name: string;
@@ -22,6 +23,11 @@ interface SeedCustomer {
 
 interface Props {
   customer: SeedCustomer;
+}
+
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export function CustomerDemoClient({ customer }: Props) {
@@ -34,23 +40,55 @@ export function CustomerDemoClient({ customer }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, error] = useStreamableValue<any>(streamableValue);
 
+  // Dual-track state
+  const [isPostCallMode, setIsPostCallMode] = useState(false);
+  const [completionRate, setCompletionRate] = useState(0);
+  const [missingFields, setMissingFields] = useState<ProfileGap[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
+  const [isFollowUpMode, setIsFollowUpMode] = useState(true); // Toggle between follow-up and strategy generation
+
   function handleGenerate() {
     if (!followUpText.trim()) return;
 
     startTransition(async () => {
       try {
-        // 调用真实的 Server Action，获取流式值
-        // 传递 customer.profile 作为 existingProfile
-        const stream = await generateStrategyStream(
-          customer.profile,
-          customer.classification.status,
-          customer.classification,
-          TEST_CUSTOMER_IDS.ZHANG_WEI, // Use Type-Safe fixture
-          customer.profile, // existingProfile
-          customer.name, // customerName
-          followUpText // followUpInput - 传入用户刚刚输入的跟进文本
-        );
-        setStreamableValue(stream);
+        if (isFollowUpMode) {
+          // Dual-track follow-up mode
+          const result = await handleFollowUp(
+            TEST_CUSTOMER_IDS.ZHANG_WEI,
+            followUpText,
+            isPostCallMode ? 'postCall' : 'copilot',
+          );
+
+          // Update state
+          setCompletionRate(result.completionRate);
+          setMissingFields(result.missingFields);
+          setConversationHistory((prev) => [
+            ...prev,
+            { role: 'user', content: followUpText },
+            { role: 'assistant', content: result.aiResponse },
+          ]);
+
+          // Clear input
+          setFollowUpText('');
+
+          // If completion >= 80%, switch to strategy generation mode
+          if (result.completionRate >= 80) {
+            setIsFollowUpMode(false);
+          }
+        } else {
+          // Strategy generation mode
+          const stream = await generateStrategyStream(
+            customer.profile,
+            customer.classification.status,
+            customer.classification,
+            TEST_CUSTOMER_IDS.ZHANG_WEI,
+            customer.profile,
+            customer.name,
+            followUpText,
+          );
+          setStreamableValue(stream);
+        }
       } catch (err) {
         console.error('生成失败:', err);
       }
@@ -170,7 +208,80 @@ export function CustomerDemoClient({ customer }: Props) {
           </p>
         </div>
       </section>
-      
+
+      {/* Progress Bar */}
+      {isFollowUpMode && (
+        <section style={{
+          padding: '24px',
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '24px',
+        }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>
+            画像完成度
+          </h2>
+
+          {/* Progress bar */}
+          <div style={{
+            width: '100%',
+            height: '32px',
+            background: '#f1f5f9',
+            borderRadius: '16px',
+            overflow: 'hidden',
+            position: 'relative',
+            marginBottom: '16px',
+          }}>
+            <div
+              style={{
+                width: `${completionRate}%`,
+                height: '100%',
+                background: completionRate >= 80 ? '#10b981' : completionRate >= 60 ? '#3b82f6' : completionRate >= 30 ? '#f59e0b' : '#ef4444',
+                transition: 'all 500ms ease-in-out',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                paddingRight: '12px',
+              }}
+            >
+              <span style={{ color: '#ffffff', fontWeight: 600, fontSize: '14px' }}>
+                {completionRate}%
+              </span>
+            </div>
+          </div>
+
+          {/* Missing fields */}
+          {missingFields.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '8px', color: '#64748b' }}>
+                待补充字段（前3项）：
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {missingFields.slice(0, 3).map((field, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '8px 12px',
+                      background: field.priority === 'critical' ? '#fef2f2' : field.priority === 'high' ? '#fffbeb' : '#f8fafc',
+                      border: `1px solid ${field.priority === 'critical' ? '#fecaca' : field.priority === 'high' ? '#fde047' : '#e2e8f0'}`,
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      color: '#475569',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      {field.priority === 'critical' ? '🔴' : field.priority === 'high' ? '🟡' : '⚪'}
+                    </span>
+                    {' '}
+                    {field.sectionTitle} → {field.description}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* 跟进记录输入区 */}
       <section style={{
         padding: '24px',
@@ -180,12 +291,38 @@ export function CustomerDemoClient({ customer }: Props) {
         marginBottom: '24px',
       }}>
         <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>
-          跟进记录
+          {isFollowUpMode ? '跟进记录' : 'AI 策略生成'}
         </h2>
-        
+
+        {/* Mode toggle */}
+        {isFollowUpMode && (
+          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={isPostCallMode}
+                onChange={(e) => setIsPostCallMode(e.target.checked)}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '14px', color: '#475569' }}>
+                事后复盘模式（Post-Call）
+              </span>
+            </label>
+            <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+              {isPostCallMode ? '💬 AI 会追问您补全画像' : '🎯 AI 会生成给客户的话术'}
+            </span>
+          </div>
+        )}
+
         <textarea
           data-testid="followup-input"
-          placeholder="请输入跟进记录..."
+          placeholder={
+            isFollowUpMode
+              ? isPostCallMode
+                ? '请输入通话录音总结或客户信息...'
+                : '请输入客户说了什么...'
+              : '请输入跟进记录...'
+          }
           value={followUpText}
           onChange={(e) => setFollowUpText(e.target.value)}
           style={{
@@ -199,7 +336,7 @@ export function CustomerDemoClient({ customer }: Props) {
             fontFamily: 'inherit',
           }}
         />
-        
+
         <button
           onClick={handleGenerate}
           disabled={isPending || !followUpText.trim()}
@@ -216,8 +353,28 @@ export function CustomerDemoClient({ customer }: Props) {
             marginRight: '12px',
           }}
         >
-          {isPending ? '生成中...' : '生成 AI 策略'}
+          {isPending ? '处理中...' : isFollowUpMode ? '提交跟进' : '生成 AI 策略'}
         </button>
+
+        {!isFollowUpMode && (
+          <button
+            onClick={() => setIsFollowUpMode(true)}
+            style={{
+              marginTop: '16px',
+              padding: '12px 24px',
+              background: '#64748b',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginRight: '12px',
+            }}
+          >
+            返回跟进模式
+          </button>
+        )}
 
         <button
           onClick={handleReset}
@@ -237,7 +394,42 @@ export function CustomerDemoClient({ customer }: Props) {
           {isResetting ? '重置中...' : '🧹 重置此客户画像'}
         </button>
       </section>
-      
+
+      {/* Conversation History */}
+      {isFollowUpMode && conversationHistory.length > 0 && (
+        <section style={{
+          padding: '24px',
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          marginBottom: '24px',
+        }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>
+            对话历史
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {conversationHistory.map((msg, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: '12px',
+                  background: msg.role === 'user' ? '#f0f9ff' : '#f0fdf4',
+                  borderRadius: '8px',
+                  border: `1px solid ${msg.role === 'user' ? '#bae6fd' : '#bbf7d0'}`,
+                }}
+              >
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>
+                  {msg.role === 'user' ? '👤 您' : '🤖 AI'}
+                </div>
+                <div style={{ fontSize: '14px', color: '#1e293b', whiteSpace: 'pre-wrap' }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 骨架屏 */}
       {showSkeleton && (
         <div

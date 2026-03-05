@@ -53,8 +53,9 @@ model Customer {
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  salesStateHistory SalesStateHistory[]
+  tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  salesStateHistory   SalesStateHistory[]
+  conversationHistory ConversationHistory[]
 
   @@index([tenantId], map: "idx_customer_tenant_id")
   @@index([tenantId, status], map: "idx_customer_tenant_status")
@@ -97,6 +98,24 @@ model KnowledgeBase {
 
   @@index([tenantId], map: "idx_knowledge_base_tenant_id")
   @@map("knowledge_bases")
+}
+
+/// @description Conversation history for dual-track profile collection.
+/// Tracks user-AI interactions in both Copilot and Post-Call modes.
+model ConversationHistory {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  role       String   @db.VarChar(20) // 'user' | 'assistant'
+  content    String   @db.Text
+  mode       String   @db.VarChar(20) // 'copilot' | 'postCall'
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, tenantId], map: "idx_conversation_customer_tenant")
+  @@index([tenantId], map: "idx_conversation_tenant_id")
+  @@map("conversation_history")
 }
 
 /// @description Document chunks with vector embeddings for semantic search.
