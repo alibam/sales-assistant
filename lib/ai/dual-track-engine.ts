@@ -70,6 +70,7 @@ async function processCopilotMode(input: DualTrackInput): Promise<DualTrackOutpu
   if (shouldContinue && gapResult.gaps.length > 0) {
     // Generate customer-facing question
     nextQuestion = await generateCustomerQuestion(
+      input.userInput,
       gapResult.gaps,
       gapResult.mergedProfile,
       input.conversationHistory,
@@ -136,41 +137,33 @@ async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutp
  * Creates natural, professional scripts for sales to use with customers.
  */
 async function generateCustomerQuestion(
+  userInput: string,
   gaps: ProfileGap[],
   currentProfile: CustomerProfile,
   conversationHistory?: ConversationMessage[],
 ): Promise<string> {
   const topGap = gaps[0];
-  const historyContext = conversationHistory && conversationHistory.length > 0
-    ? `\n\n对话历史（最近3轮）：\n${conversationHistory.slice(-3).map(m => `${m.role === 'user' ? '销售员输入' : 'AI建议'}: ${m.content}`).join('\n')}`
-    : '';
 
-  const prompt = `你是一个高情商的金牌销售教练，正在实时指导销售员与客户对话。
+  const prompt = `你是一个年薪百万的奔驰4S店金牌内训师（Copilot）。销售员正在向你实时汇报客户的最新动态。
 
-【当前情况】
-销售员刚刚输入了客户的最新动态或回应。
+销售员刚刚的汇报：
+"${userInput}"
 
-【你的任务】
-你必须首先针对当前情况给出 1-2 句应对建议或肯定，然后再自然地、顺水推舟地引出对缺失字段的探需话术。
+当前尚未收集到的客户信息（Gap）：
+最急需探明的字段：${topGap.description}
 
-【当前需要补充的信息】
-- 字段：${topGap.description}
-- 优先级：${topGap.priority}
+你的任务是教销售员怎么接话。
 
-【当前客户画像】
-${JSON.stringify(currentProfile, null, 2)}
-${historyContext}
+【金牌销售法则（必须严格遵守）】
+第一步（接化发）：你必须先教销售员如何接住客户刚才的话！如果客户提到了竞品（如理想L8）或抛出了痛点/底牌，你的话术必须先针对性地回应这个点，化解抗拒。
 
-【极其重要的要求】
-1. 绝对不允许生硬地直接抛出问题！必须先给出针对当前情况的应对建议
-2. 话术必须贴近真实销售场景，像人类销冠一样有同理心
-3. 不要生硬地问"您的预算是多少"，而是用更委婉、更自然的方式
-4. 问题要简短，一次只问一个核心点
-5. 避免重复之前已经问过的问题
-6. 只返回话术本身，不要加任何前缀或解释
+第二步（顺水推舟）：在成功接话后，如果时机合适，再自然地把话题引向那个"最急需探明的字段"。
 
-【输出格式示例】
-"不错！客户对这个配置很感兴趣。您可以顺势问：'您这边大概准备投入多少预算呢？我帮您看看有哪些合适的方案。'"
+绝对不要用"不错！"、"太棒了！"这种假大空的机器人赞美。
+话术必须像真人说话一样口语化、接地气。
+
+【输出格式】
+只需要输出教给销售员的话术原句（放在双引号内），不要任何解释。
 
 请生成话术：`;
 
