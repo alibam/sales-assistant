@@ -48,6 +48,9 @@ export function CustomerDemoClient({ customer }: Props) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, error] = useStreamableValue<any>(streamableValue);
 
+  // 当前客户画像状态（修复数据陈旧 Bug）
+  const [currentProfile, setCurrentProfile] = useState<CustomerProfile>(customer.profile);
+
   // Dual-track state - 不允许修改！
   const [isPostCallMode, setIsPostCallMode] = useState(false);
   const [completionRate, setCompletionRate] = useState(0);
@@ -76,6 +79,11 @@ export function CustomerDemoClient({ customer }: Props) {
             { role: 'assistant', content: result.aiResponse },
           ]);
 
+          // 更新本地画像状态（修复数据陈旧 Bug）
+          if (result.updatedProfile) {
+            setCurrentProfile(result.updatedProfile);
+          }
+
           setFollowUpText('');
 
           if (result.completionRate >= 80) {
@@ -83,11 +91,11 @@ export function CustomerDemoClient({ customer }: Props) {
           }
         } else {
           const stream = await generateStrategyStream(
-            customer.profile,
+            currentProfile,
             customer.classification.status,
             customer.classification,
             TEST_CUSTOMER_IDS.ZHANG_WEI,
-            customer.profile,
+            currentProfile,
             customer.name,
             followUpText,
           );

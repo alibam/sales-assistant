@@ -142,27 +142,37 @@ async function generateCustomerQuestion(
 ): Promise<string> {
   const topGap = gaps[0];
   const historyContext = conversationHistory && conversationHistory.length > 0
-    ? `\n\n对话历史（避免重复提问）：\n${conversationHistory.slice(-3).map(m => `${m.role}: ${m.content}`).join('\n')}`
+    ? `\n\n对话历史（最近3轮）：\n${conversationHistory.slice(-3).map(m => `${m.role === 'user' ? '销售员输入' : 'AI建议'}: ${m.content}`).join('\n')}`
     : '';
 
-  const prompt = `你是一个汽车4S店的AI销售助手。请生成一个自然、专业的问题，让销售顾问用来询问客户。
+  const prompt = `你是一个高情商的金牌销售教练，正在实时指导销售员与客户对话。
 
-当前需要补充的信息：
+【当前情况】
+销售员刚刚输入了客户的最新动态或回应。
+
+【你的任务】
+你必须首先针对当前情况给出 1-2 句应对建议或肯定，然后再自然地、顺水推舟地引出对缺失字段的探需话术。
+
+【当前需要补充的信息】
 - 字段：${topGap.description}
 - 优先级：${topGap.priority}
 
-当前客户画像：
+【当前客户画像】
 ${JSON.stringify(currentProfile, null, 2)}
 ${historyContext}
 
-要求：
-1. 问题要自然、口语化，符合销售场景
-2. 不要生硬地问"您的预算是多少"，而是用更委婉的方式
-3. 问题要简短，一次只问一个核心点
-4. 避免重复之前已经问过的问题
-5. 只返回问题本身，不要加任何前缀或解释
+【极其重要的要求】
+1. 绝对不允许生硬地直接抛出问题！必须先给出针对当前情况的应对建议
+2. 话术必须贴近真实销售场景，像人类销冠一样有同理心
+3. 不要生硬地问"您的预算是多少"，而是用更委婉、更自然的方式
+4. 问题要简短，一次只问一个核心点
+5. 避免重复之前已经问过的问题
+6. 只返回话术本身，不要加任何前缀或解释
 
-请生成问题：`;
+【输出格式示例】
+"不错！客户对这个配置很感兴趣。您可以顺势问：'您这边大概准备投入多少预算呢？我帮您看看有哪些合适的方案。'"
+
+请生成话术：`;
 
   const { text } = await generateText({
     model: getAIModel(),
