@@ -3,6 +3,8 @@
  * 
  * Next.js App Router 需要根布局包含 <html> 和 <body> 标签
  */
+import './globals.css';
+
 export const metadata = {
   title: '智能销售助手',
   description: 'AI-Powered Sales Lifecycle Management',

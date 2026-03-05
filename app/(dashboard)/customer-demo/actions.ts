@@ -68,6 +68,14 @@ export async function resetCustomerProfile(customerId: string): Promise<{ succes
         },
       });
 
+      // 2.5. 删除该客户的所有对话历史记录（修复"幽灵记忆" Bug）
+      await tx.conversationHistory.deleteMany({
+        where: {
+          customerId,
+          tenantId,
+        },
+      });
+
       // 3. 重置客户画像和状态
       await tx.customer.update({
         where: {
