@@ -10,9 +10,11 @@
 import { requireAuth } from '@/lib/auth/session';
 import { CustomerDemoClient } from './client';
 import type { CustomerProfile } from '@/lib/ai/types';
+import { TEST_CUSTOMER_IDS } from '@/lib/db/fixtures';
 
 // 种子用户数据
 const SEED_CUSTOMER = {
+  id: TEST_CUSTOMER_IDS.ZHANG_WEI,  // 添加 id 字段
   name: '张伟',
   profile: {
     scene: {

@@ -345,6 +345,9 @@ function buildCustomerInfo(profileData: Partial<CustomerProfile>, customerName?:
     const surname = customerName.charAt(0);
     parts.push(`- 客户姓名: ${customerName}`);
     parts.push(`- 称呼规则: 必须使用"${surname}先生"或"${surname}哥"，绝对不允许凭空捏造其他姓氏或称呼`);
+  } else {
+    parts.push(`- 客户姓名: 未知`);
+    parts.push(`- 称呼规则: 必须使用"该客户"、"这位客户"、"先生"、"女士"等中性称呼，绝对不允许凭空捏造姓氏（如"张伟"、"王总"等）`);
   }
 
   // 意向车型
@@ -358,6 +361,9 @@ function buildCustomerInfo(profileData: Partial<CustomerProfile>, customerName?:
   if (customerName) {
     const surname = customerName.charAt(0);
     parts.push(`- 如果客户姓名是"${customerName}"，必须称呼"${surname}先生"或"${surname}哥"，绝不能叫"王总"或其他名字`);
+  } else {
+    parts.push(`- 如果客户姓名未知，必须使用"该客户"、"这位客户"、"先生"、"女士"等中性称呼`);
+    parts.push(`- 绝对禁止使用"张伟"、"张哥"、"王总"等具体姓氏，这些都是测试数据！`);
   }
   parts.push('- 所有信息必须基于已知的客户画像，不得编造');
   parts.push('');

@@ -11,7 +11,6 @@ import { generateStrategyStream } from '@/lib/ai/strategy-server';
 import type { CustomerProfile } from '@/lib/ai/types';
 import type { ClassificationResult } from '@/lib/xstate/state-evaluator';
 import { resetCustomerProfile, handleFollowUp } from './actions';
-import { TEST_CUSTOMER_IDS } from '@/lib/db/fixtures';
 import type { ProfileGap } from '@/lib/ai/types';
 
 // shadcn/ui 组件
@@ -25,6 +24,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 
 interface SeedCustomer {
+  id: string;  // 添加 id 字段
   name: string;
   profile: CustomerProfile;
   classification: ClassificationResult;
@@ -66,7 +66,7 @@ export function CustomerDemoClient({ customer }: Props) {
       try {
         if (isFollowUpMode) {
           const result = await handleFollowUp(
-            TEST_CUSTOMER_IDS.ZHANG_WEI,
+            customer.id,  // 使用真实的 customer.id
             followUpText,
             isPostCallMode ? 'postCall' : 'copilot',
           );
@@ -90,13 +90,15 @@ export function CustomerDemoClient({ customer }: Props) {
             setIsFollowUpMode(false);
           }
         } else {
+          // 策略生成：不传入 customer.name（避免硬编码的 Mock 数据污染）
+          // 如果需要客户名字，应该从 currentProfile 中提取，或者让 AI 使用中性称呼
           const stream = await generateStrategyStream(
             currentProfile,
             customer.classification.status,
             customer.classification,
-            TEST_CUSTOMER_IDS.ZHANG_WEI,
+            customer.id,  // 使用真实的 customer.id，而不是 TEST_CUSTOMER_IDS.ZHANG_WEI
             currentProfile,
-            customer.name,
+            undefined,  // 不传入 customer.name，让 AI 使用"该客户"、"先生/女士"等中性称呼
             followUpText,
           );
           setStreamableValue(stream);
@@ -114,7 +116,7 @@ export function CustomerDemoClient({ customer }: Props) {
 
     setIsResetting(true);
     try {
-      const result = await resetCustomerProfile(TEST_CUSTOMER_IDS.ZHANG_WEI);
+      const result = await resetCustomerProfile(customer.id);  // 使用真实的 customer.id
       if (result.success) {
         alert('✅ 客户画像已重置');
         window.location.reload();
