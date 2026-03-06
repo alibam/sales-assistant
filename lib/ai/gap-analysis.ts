@@ -128,14 +128,21 @@ const CRITICAL_FIELDS = new Set([
  *
  * @param input - Raw natural language input from the sales rep
  * @param existingProfile - Optional existing profile to provide context
+ * @param conversationHistory - Optional conversation history for context
  * @returns Extracted customer profile fields
  */
 export async function analyzeCustomerInput(
   input: string,
   existingProfile?: Partial<CustomerProfile>,
+  conversationHistory?: Array<{ role: string; content: string }>,
 ): Promise<CustomerProfile> {
   const existingContext = existingProfile
     ? `\n\n已有客户画像数据（仅供参考，请基于新输入提取增量信息）：\n${JSON.stringify(existingProfile, null, 2)}`
+    : '';
+
+  // 提取并格式化历史记录（保留最近 5-6 条）
+  const historyContext = conversationHistory && conversationHistory.length > 0
+    ? `\n\n【近期对话历史（用于理解上下文）】：\n${conversationHistory.slice(-6).map(m => `${m.role === 'user' ? '销售' : 'AI'}: ${m.content}`).join('\n')}`
     : '';
 
   const { object } = await generateObject({
@@ -143,12 +150,27 @@ export async function analyzeCustomerInput(
     schema: customerProfileSchema,
     prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
 
+【你的核心身份与立场】
+你是一家奔驰 4S 店的数据分析中枢。
+
+【严格的数据映射法则】
+1. 敌我识别：只要客户提到 GLC、E级、C级等奔驰车型，放入【意向车型】。如果客户提到理想、宝马、奥迪、蔚来等其他任何品牌，**绝对不允许放入意向车型，必须放入【竞品车型】！**
+
+2. 极度敏锐的嗅觉：如果输入文本中包含"月底"、"下个月"、"年底"、"不急"等任何时间状语，必须将其提取并强制填入【提车时间】字段，绝对不允许留空！
+   - "月底" → "本月"
+   - "下个月" → "1周"
+   - "年底" → "不急"
+   - "马上" / "立刻" → "3天"
+
+3. 增量更新：只提取本次对话中新出现的信息，并与现有画像合并。
+
 规则：
 - 只提取输入中明确提到或可以合理推断的信息
 - 如果某个字段在输入中没有提及，不要填写（留空/省略）
 - 对于枚举字段，如果无法确定，使用"未知"
 - 保持提取的信息忠实于原始输入，不要编造
 ${existingContext}
+${historyContext}
 
 销售顾问输入：
 ${input}`,
@@ -375,16 +397,18 @@ export function calculateCompleteness(
  *
  * @param input - Raw natural language input from sales rep
  * @param existingProfile - Optional existing customer profile
+ * @param conversationHistory - Optional conversation history for context
  * @returns Complete gap analysis result
  */
 export async function runGapAnalysis(
   input: string,
   existingProfile?: Partial<CustomerProfile>,
+  conversationHistory?: Array<{ role: string; content: string }>,
 ): Promise<GapAnalysisResult> {
   const schema = loadProfileSchema();
 
   // Step 1: Extract structured data from input
-  const extractedProfile = await analyzeCustomerInput(input, existingProfile);
+  const extractedProfile = await analyzeCustomerInput(input, existingProfile, conversationHistory);
 
   // Step 2: Merge with existing profile
   const mergedProfile = mergeProfiles(existingProfile ?? {}, extractedProfile);

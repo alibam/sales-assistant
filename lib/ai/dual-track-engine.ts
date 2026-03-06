@@ -59,7 +59,7 @@ export async function processDualTrack(input: DualTrackInput): Promise<DualTrack
  */
 async function processCopilotMode(input: DualTrackInput): Promise<DualTrackOutput> {
   // Run gap analysis to extract info and identify gaps
-  const gapResult = await runGapAnalysis(input.userInput, input.customerProfile);
+  const gapResult = await runGapAnalysis(input.userInput, input.customerProfile, input.conversationHistory);
 
   const completionRate = gapResult.completeness;
   const shouldContinue = completionRate < COMPLETION_THRESHOLD;
@@ -99,7 +99,7 @@ async function processCopilotMode(input: DualTrackInput): Promise<DualTrackOutpu
  */
 async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutput> {
   // Run gap analysis to extract info and identify gaps
-  const gapResult = await runGapAnalysis(input.userInput, input.customerProfile);
+  const gapResult = await runGapAnalysis(input.userInput, input.customerProfile, input.conversationHistory);
 
   const completionRate = gapResult.completeness;
   const shouldContinue = completionRate < COMPLETION_THRESHOLD;
