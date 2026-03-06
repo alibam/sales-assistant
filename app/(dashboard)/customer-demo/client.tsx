@@ -138,14 +138,18 @@ export function CustomerDemoClient({ customer }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 md:px-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-slate-900 mb-2">
-            客户演示 - {customer.name}
-          </h1>
-          <p className="text-slate-500">双轨画像采集与 AI 策略生成</p>
-        </div>
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <h1 className="text-3xl font-semibold text-slate-900 mb-2">
+          客户演示 - {customer.name}
+        </h1>
+        <p className="text-slate-500">双轨画像采集与 AI 策略生成</p>
+      </div>
+
+      {/* 黄金分栏布局 */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-w-7xl mx-auto">
+        {/* 左侧主轴 (2/3) */}
+        <div className="xl:col-span-2 space-y-6">
         
         {/* A/B/C/D 画像信息区 - shadcn Card */}
         <Card>
@@ -165,11 +169,11 @@ export function CustomerDemoClient({ customer }: Props) {
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-slate-500 text-xs">使用场景</span>
-                    <p className="font-medium">{customer.profile.scene?.usage_scenario || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.scene?.usage_scenario || '未填写'}</p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-xs">关键动机</span>
-                    <p className="font-medium">{customer.profile.scene?.key_motives?.join(', ') || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.scene?.key_motives?.join(', ') || '未填写'}</p>
                   </div>
                 </div>
               </div>
@@ -185,11 +189,11 @@ export function CustomerDemoClient({ customer }: Props) {
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-slate-500 text-xs">意向车型</span>
-                    <p className="font-medium">{customer.profile.preference?.intent_model || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.preference?.intent_model || '未填写'}</p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-xs">配置偏好</span>
-                    <p className="font-medium">{customer.profile.preference?.config_preference?.join(', ') || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.preference?.config_preference?.join(', ') || '未填写'}</p>
                   </div>
                 </div>
               </div>
@@ -205,11 +209,11 @@ export function CustomerDemoClient({ customer }: Props) {
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-slate-500 text-xs">预算</span>
-                    <p className="font-medium">{customer.profile.budget_payment?.budget_limit || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.budget_payment?.budget_limit || '未填写'}</p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-xs">付款方式</span>
-                    <p className="font-medium">{customer.profile.budget_payment?.payment_method || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.budget_payment?.payment_method || '未填写'}</p>
                   </div>
                 </div>
               </div>
@@ -225,11 +229,11 @@ export function CustomerDemoClient({ customer }: Props) {
                 <div className="space-y-2 text-sm">
                   <div>
                     <span className="text-slate-500 text-xs">决策人参与</span>
-                    <p className="font-medium">{customer.profile.decision_unit?.decision_maker_involved ? '是' : '否'}</p>
+                    <p className="font-medium">{currentProfile.decision_unit?.decision_maker_involved ? '是' : '否'}</p>
                   </div>
                   <div>
                     <span className="text-slate-500 text-xs">主要顾虑</span>
-                    <p className="font-medium">{customer.profile.blockers?.main_blocker || '未填写'}</p>
+                    <p className="font-medium">{currentProfile.blockers?.main_blocker || '未填写'}</p>
                   </div>
                 </div>
               </div>
@@ -280,6 +284,12 @@ export function CustomerDemoClient({ customer }: Props) {
               )}
             </CardContent>
           </Card>
+
+        </div>
+        {/* 左侧主轴结束 */}
+
+        {/* 右侧边栏 (1/3) */}
+        <div className="xl:col-span-1 flex flex-col gap-6">
 
         {/* 跟进记录输入区 - shadcn Card */}
         <Card>
@@ -350,7 +360,7 @@ export function CustomerDemoClient({ customer }: Props) {
             <CardHeader>
               <CardTitle>对话历史</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="max-h-[500px] overflow-y-auto">
               <div className="space-y-4">
                 {conversationHistory.map((msg, idx) => (
                   <div
@@ -470,7 +480,12 @@ export function CustomerDemoClient({ customer }: Props) {
             </CardContent>
           </Card>
         )}
+
+        </div>
+        {/* 右侧边栏结束 */}
+
       </div>
+      {/* 黄金分栏布局结束 */}
     </div>
   );
 }
