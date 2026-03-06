@@ -271,9 +271,13 @@ ${input}
       }
     }
 
+    // 🚨 排雷 1：清洗 JSON 字符串中的换行符，防止 Bad control character 崩溃
+    // 大模型可能在 JSON 字符串值内输出未转义的换行符，导致 JSON.parse 崩溃
+    const safeJson = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
+
     // 解析 JSON - 使用 reviver 函数将所有 null 转换为 undefined
     // 这样 Zod 的 .optional() 就能正确处理
-    const parsedObject = JSON.parse(jsonString, (key, value) => value === null ? undefined : value);
+    const parsedObject = JSON.parse(safeJson, (key, value) => value === null ? undefined : value);
 
     // 使用 Zod 进行类型安全校验
     const validatedProfile = customerProfileSchema.parse(parsedObject);

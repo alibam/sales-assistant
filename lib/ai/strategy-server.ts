@@ -9,7 +9,7 @@
 'use server';
 
 import { createStreamableValue } from 'ai/rsc';
-import { streamObject } from 'ai';
+import { streamText } from 'ai';
 import { z } from 'zod';
 import { getAIModel } from './provider';
 import { customerProfileSchema, mergeProfiles } from './gap-analysis';
@@ -202,9 +202,9 @@ export async function generateStrategyStream(
         }
       }
 
-      const result = await streamObject({
+      // 🚨 排雷 2：使用 streamText 替代 streamObject，手动过滤 <think> 标签
+      const result = await streamText({
         model: getAIModel(),
-        schema: strategySchema,
         prompt: `你是一位资深的汽车销售顾问。基于以下客户画像和分类信息，生成个性化的销售策略。
 
 ${customerInfo}
@@ -243,14 +243,99 @@ ${buildContext(mergedProfile as Partial<CustomerProfile>, finalStatus, classific
 要求：
 - 话术要具体、可执行
 - 行动计划要有明确的负责人和时间窗口
-- 针对客户分类特点优化策略`,
+- 针对客户分类特点优化策略
+
+💡 鼓励思考：你可以先在 <think>...</think> 标签内进行充分的逻辑推理。思考结束后，你【必须】将最终的结构化结果放在一个 \`\`\`json 和 \`\`\` 包裹的代码块中返回！
+
+【JSON Schema 参考】：
+${JSON.stringify({
+  title: 'string',
+  summary: 'string',
+  priority: '"高" | "中" | "低"',
+  talkTracks: [{
+    objective: 'string',
+    script: 'string',
+    whenToUse: 'string',
+    tone: '"坚定" | "顾问式" | "共情式"'
+  }],
+  actionPlan: [{
+    step: 'string',
+    owner: '"销售顾问" | "销售经理" | "金融专员"',
+    dueWindow: 'string',
+    expectedSignal: 'string'
+  }],
+  nextFollowUp: 'string'
+}, null, 2)}
+
+请按照以下格式输出：
+<think>
+你的思考过程...
+</think>
+
+\`\`\`json
+{
+  "title": "...",
+  "summary": "...",
+  ...
+}
+\`\`\``,
       });
-      
-      // 流式更新
-      for await (const partial of result.partialObjectStream) {
-        streamable.update(partial as Strategy);
+
+      // 手动过滤 <think> 标签并累加 JSON
+      let accumulatedText = '';
+      let isAfterThinkTag = false;
+
+      for await (const chunk of result.textStream) {
+        accumulatedText += chunk;
+
+        // 检测是否已经过了 </think> 标签
+        if (!isAfterThinkTag && accumulatedText.includes('</think>')) {
+          isAfterThinkTag = true;
+          // 截取 </think> 之后的内容
+          const thinkEndIndex = accumulatedText.indexOf('</think>') + '</think>'.length;
+          accumulatedText = accumulatedText.substring(thinkEndIndex);
+        }
+
+        // 只有在 </think> 之后才开始解析 JSON
+        if (isAfterThinkTag) {
+          // 尝试提取并解析 JSON
+          const jsonBlockMatch = accumulatedText.match(/```json\s*\n([\s\S]*?)\n```/);
+          if (jsonBlockMatch) {
+            try {
+              const jsonString = jsonBlockMatch[1].trim();
+              // 🚨 排雷：清洗换行符
+              const safeJson = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
+              const parsedStrategy = JSON.parse(safeJson);
+
+              // 验证 schema
+              const validatedStrategy = strategySchema.parse(parsedStrategy);
+              streamable.update(validatedStrategy);
+            } catch (error) {
+              // JSON 尚未完整，继续累加
+              console.log('[Strategy Server] Partial JSON, continuing...');
+            }
+          }
+        }
       }
-      
+
+      // 最终解析
+      try {
+        const jsonBlockMatch = accumulatedText.match(/```json\s*\n([\s\S]*?)\n```/);
+        if (jsonBlockMatch) {
+          const jsonString = jsonBlockMatch[1].trim();
+          const safeJson = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
+          const parsedStrategy = JSON.parse(safeJson);
+          const validatedStrategy = strategySchema.parse(parsedStrategy);
+          streamable.update(validatedStrategy);
+        } else {
+          throw new Error('无法从模型输出中提取 JSON');
+        }
+      } catch (error) {
+        console.error('[Strategy Server] Final JSON parse error:', error);
+        console.error('[Strategy Server] Accumulated text:', accumulatedText);
+        throw error;
+      }
+
       // 完成
       streamable.done();
       
