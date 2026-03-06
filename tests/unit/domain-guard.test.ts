@@ -9,7 +9,7 @@
  * 注意：这个测试会失败，因为 filterCrossDomainKnowledge 函数在实际代码中不存在
  */
 
-import { test, expect } from '@playwright/test';
+import { describe, test, expect } from 'vitest';
 
 // 尝试导入实际的函数（应该会失败）
 let filterCrossDomainKnowledge: any;
@@ -21,7 +21,7 @@ try {
   filterCrossDomainKnowledge = undefined;
 }
 
-test.describe('场景一致性守卫', () => {
+describe('场景一致性守卫', () => {
   test('filterCrossDomainKnowledge 函数应该存在', () => {
     // Then: 函数应该存在
     expect(filterCrossDomainKnowledge).toBeDefined();

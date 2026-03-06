@@ -7,12 +7,12 @@
  * - Then: 应该返回空数组或过滤掉低相关度结果
  */
 
-import { test, expect } from '@playwright/test';
+import { describe, test, expect } from 'vitest';
 import { searchRelevantKnowledge } from '@/lib/ai/retrieval';
 import { prisma } from '@/lib/db/client';
 import { TEST_TENANT_IDS } from '@/lib/db/fixtures';
 
-test.describe('RAG 相似度阈值守卫', () => {
+describe('RAG 相似度阈值守卫', () => {
   test('低相似度结果应该被过滤（相似度 < 0.7）', async () => {
     // Given: 一个与知识库内容不相关的查询
     const irrelevantQuery = '火星探测器的燃料系统设计';

@@ -7,10 +7,10 @@
  * - Then: 应该抛出错误，不执行后续逻辑
  */
 
-import { test, expect } from '@playwright/test';
+import { describe, test, expect } from 'vitest';
 import { customerProfileSchema } from '@/lib/ai/gap-analysis';
 
-test.describe('策略服务输入验证', () => {
+describe('策略服务输入验证', () => {
   test('customerProfileSchema 应该正确验证合法输入', () => {
     // Given: 合法的 profileData
     const validProfile = {
