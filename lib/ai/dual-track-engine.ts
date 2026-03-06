@@ -67,7 +67,8 @@ async function processCopilotMode(input: DualTrackInput): Promise<DualTrackOutpu
   let aiResponse = '';
   let nextQuestion: string | undefined;
 
-  if (shouldContinue && gapResult.gaps.length > 0) {
+  // 拆除硬阻断：即使完成度达标，也继续生成 AI 话术
+  if (gapResult.gaps.length > 0) {
     // Generate customer-facing question
     nextQuestion = await generateCustomerQuestion(
       input.userInput,
@@ -76,6 +77,11 @@ async function processCopilotMode(input: DualTrackInput): Promise<DualTrackOutpu
       input.conversationHistory,
     );
     aiResponse = `💬 您可以这样问客户：\n\n"${nextQuestion}"`;
+    
+    // 如果完成度达标，追加提示
+    if (!shouldContinue) {
+      aiResponse += '\n\n*(💡 画像完成度达标，您可以随时点击生成策略，或继续提问)*';
+    }
   } else {
     aiResponse = '✅ 客户画像已基本完整（完成度 ≥ 80%），可以进入策略生成阶段。';
   }
@@ -107,7 +113,8 @@ async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutp
   let aiResponse = '';
   let nextQuestion: string | undefined;
 
-  if (shouldContinue && gapResult.gaps.length > 0) {
+  // 拆除硬阻断：即使完成度达标，也继续生成 AI 话术
+  if (gapResult.gaps.length > 0) {
     // Generate sales-facing question
     nextQuestion = await generateSalesQuestion(
       gapResult.gaps,
@@ -115,6 +122,11 @@ async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutp
       input.conversationHistory,
     );
     aiResponse = `🔍 ${nextQuestion}`;
+    
+    // 如果完成度达标，追加提示
+    if (!shouldContinue) {
+      aiResponse += '\n\n*(💡 画像完成度达标，您可以随时点击生成策略，或继续提问)*';
+    }
   } else {
     aiResponse = '✅ 客户画像已基本完整（完成度 ≥ 80%），可以进入策略生成阶段。';
   }

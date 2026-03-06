@@ -459,125 +459,7 @@ export function CustomerDemoClient({ customer }: Props) {
             </CardContent>
           </Card>
 
-        </div>
-        {/* 左侧主轴结束 */}
-
-        {/* 右侧边栏 (1/3) */}
-        <div className="xl:col-span-1 flex flex-col gap-6">
-
-        {/* 跟进记录输入区 - shadcn Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{isFollowUpMode ? '跟进记录' : 'AI 策略生成'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isFollowUpMode && (
-              <div className="flex items-center gap-3">
-                <Checkbox 
-                  id="postCallMode" 
-                  checked={isPostCallMode}
-                  onCheckedChange={(checked) => setIsPostCallMode(checked as boolean)}
-                />
-                <label htmlFor="postCallMode" className="text-sm">
-                  {isPostCallMode ? '💬 事后复盘模式' : '🎯 实时引导模式'}
-                </label>
-                <span className="text-xs text-slate-400">
-                  {isPostCallMode ? 'AI 会追问您补全画像' : 'AI 会生成给客户的话术'}
-                </span>
-              </div>
-            )}
-
-            <Textarea
-              placeholder={
-                isFollowUpMode
-                  ? isPostCallMode
-                    ? '请输入通话录音总结或客户信息...'
-                    : '请输入客户说了什么...'
-                  : '请输入跟进记录...'
-              }
-              value={followUpText}
-              onChange={(e) => setFollowUpText(e.target.value)}
-              className="min-h-[120px]"
-            />
-
-            <div className="flex flex-wrap gap-3">
-              <Button 
-                onClick={handleGenerate} 
-                disabled={isPending || (isFollowUpMode && !followUpText.trim())}
-              >
-                {isPending ? '处理中...' : isFollowUpMode ? '提交跟进' : '生成 AI 策略'}
-              </Button>
-
-              {!isFollowUpMode && (
-                <Button 
-                  variant="outline"
-                  onClick={() => setIsFollowUpMode(true)}
-                >
-                  返回跟进模式
-                </Button>
-              )}
-
-              <Button 
-                variant="destructive" 
-                onClick={handleReset}
-                disabled={isResetting}
-              >
-                {isResetting ? '重置中...' : '重置此客户画像'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Conversation History - shadcn Card - 始终可见 */}
-        {conversationHistory.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>对话历史</CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-[500px] overflow-y-auto">
-              <div className="space-y-4">
-                {conversationHistory.map((msg, idx) => (
-                  <div
-                    key={idx}
-                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                      <Avatar className={msg.role === 'user' ? 'bg-slate-900' : 'bg-slate-100'}>
-                        <AvatarFallback className={msg.role === 'user' ? 'text-white' : ''}>
-                          {msg.role === 'user' ? '👤' : '🤖'}
-                        </AvatarFallback>
-                      </Avatar>
-                      
-                      <div className={`px-4 py-2 rounded-lg ${
-                        msg.role === 'user'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-900'
-                      }`}>
-                        <p className="text-sm">{msg.content}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 骨架屏 */}
-        {showSkeleton && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="animate-pulse space-y-4">
-                <div className="h-6 bg-slate-200 rounded w-2/5" />
-                <div className="h-4 bg-slate-200 rounded w-full" />
-                <div className="h-4 bg-slate-200 rounded w-11/12" />
-                <div className="h-4 bg-slate-200 rounded w-9/12" />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        
-        {/* 流式生成区 - shadcn Card */}
+        {/* 流式生成区 - AI 策略看板（空间左移到主画布） */}
         {data && (
           <Card>
             <CardHeader>
@@ -651,6 +533,123 @@ export function CustomerDemoClient({ customer }: Props) {
           <Card className="border-red-200 bg-red-50">
             <CardContent className="pt-6">
               <p className="text-sm text-red-600">⚠️ 生成失败: {String(error)}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        </div>
+        {/* 左侧主轴结束 */}
+
+        {/* 右侧边栏 (1/3) */}
+        <div className="xl:col-span-1 flex flex-col gap-6">
+
+        {/* 跟进记录输入区 - shadcn Card */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{isFollowUpMode ? '跟进记录' : 'AI 策略生成'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isFollowUpMode && (
+              <div className="flex items-center gap-3">
+                <Checkbox 
+                  id="postCallMode" 
+                  checked={isPostCallMode}
+                  onCheckedChange={(checked) => setIsPostCallMode(checked as boolean)}
+                />
+                <label htmlFor="postCallMode" className="text-sm">
+                  {isPostCallMode ? '💬 事后复盘模式' : '🎯 实时引导模式'}
+                </label>
+                <span className="text-xs text-slate-400">
+                  {isPostCallMode ? 'AI 会追问您补全画像' : 'AI 会生成给客户的话术'}
+                </span>
+              </div>
+            )}
+
+            <Textarea
+              placeholder={
+                isFollowUpMode
+                  ? isPostCallMode
+                    ? '请输入通话录音总结或客户信息...'
+                    : '请输入客户说了什么...'
+                  : '请输入跟进记录...'
+              }
+              value={followUpText}
+              onChange={(e) => setFollowUpText(e.target.value)}
+              className="min-h-[120px]"
+            />
+
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                onClick={handleGenerate} 
+                disabled={isPending || (isFollowUpMode && !followUpText.trim())}
+                className={completionRate >= 80 && !isFollowUpMode ? 'animate-pulse bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' : ''}
+              >
+                {isPending ? '处理中...' : isFollowUpMode ? '提交跟进' : '✨ 生成 AI 策略'}
+              </Button>
+
+              {!isFollowUpMode && (
+                <Button 
+                  variant="outline"
+                  onClick={() => setIsFollowUpMode(true)}
+                >
+                  返回跟进模式
+                </Button>
+              )}
+
+              <Button 
+                variant="destructive" 
+                onClick={handleReset}
+                disabled={isResetting}
+              >
+                {isResetting ? '重置中...' : '重置此客户画像'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Conversation History - shadcn Card - 始终可见 */}
+        {conversationHistory.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>对话历史</CardTitle>
+            </CardHeader>
+            <CardContent className="max-h-[500px] overflow-y-auto">
+              <div className="space-y-4">
+                {conversationHistory.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <Avatar className={msg.role === 'user' ? 'bg-slate-900' : 'bg-slate-100'}>
+                        <AvatarFallback className={msg.role === 'user' ? 'text-white' : ''}>
+                          {msg.role === 'user' ? '👤' : '🤖'}
+                        </AvatarFallback>
+                      </Avatar>
+                      
+                      <div className={`px-4 py-2 rounded-lg ${
+                        msg.role === 'user'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-900'
+                      }`}>
+                        <p className="text-sm">{msg.content}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* 骨架屏 - 简短的状态反馈 */}
+        {showSkeleton && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="animate-spin h-5 w-5 border-2 border-slate-300 border-t-slate-900 rounded-full" />
+                <p className="text-sm text-slate-600">✨ AI 策略生成中，请查看左侧看板...</p>
+              </div>
             </CardContent>
           </Card>
         )}
