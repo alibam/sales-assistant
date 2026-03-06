@@ -57,6 +57,9 @@ export function CustomerDemoClient({ customer }: Props) {
   const [missingFields, setMissingFields] = useState<ProfileGap[]>([]);
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isFollowUpMode, setIsFollowUpMode] = useState(true);
+  
+  // 新增：区分 Loading 状态
+  const [isGeneratingStrategy, setIsGeneratingStrategy] = useState(false);
 
   function handleGenerate() {
     // 只在跟进模式下检查输入是否为空
@@ -65,6 +68,8 @@ export function CustomerDemoClient({ customer }: Props) {
     startTransition(async () => {
       try {
         if (isFollowUpMode) {
+          setIsGeneratingStrategy(false);  // 跟进模式，不是生成策略
+          
           const result = await handleFollowUp(
             customer.id,  // 使用真实的 customer.id
             followUpText,
@@ -90,6 +95,8 @@ export function CustomerDemoClient({ customer }: Props) {
             setIsFollowUpMode(false);
           }
         } else {
+          setIsGeneratingStrategy(true);  // 策略生成模式
+          
           // 策略生成：不传入 customer.name（避免硬编码的 Mock 数据污染）
           // 如果需要客户名字，应该从 currentProfile 中提取，或者让 AI 使用中性称呼
           const stream = await generateStrategyStream(
@@ -581,12 +588,23 @@ export function CustomerDemoClient({ customer }: Props) {
             />
 
             <div className="flex flex-wrap gap-3">
+              {/* 跟进模式按钮 */}
+              {isFollowUpMode && (
+                <Button 
+                  onClick={handleGenerate} 
+                  disabled={isPending || !followUpText.trim()}
+                >
+                  {isPending ? '处理中...' : '提交跟进'}
+                </Button>
+              )}
+
+              {/* 策略生成按钮 - 始终可见且可点击 */}
               <Button 
                 onClick={handleGenerate} 
-                disabled={isPending || (isFollowUpMode && !followUpText.trim())}
+                disabled={isPending}
                 className={completionRate >= 80 && !isFollowUpMode ? 'animate-pulse bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' : ''}
               >
-                {isPending ? '处理中...' : isFollowUpMode ? '提交跟进' : '✨ 生成 AI 策略'}
+                {isPending ? '处理中...' : '✨ 生成 AI 策略'}
               </Button>
 
               {!isFollowUpMode && (
@@ -644,13 +662,17 @@ export function CustomerDemoClient({ customer }: Props) {
           </Card>
         )}
 
-        {/* 骨架屏 - 简短的状态反馈 */}
+        {/* 骨架屏 - 根据模式显示不同的状态反馈 */}
         {showSkeleton && (
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="animate-spin h-5 w-5 border-2 border-slate-300 border-t-slate-900 rounded-full" />
-                <p className="text-sm text-slate-600">✨ AI 策略生成中，请查看左侧看板...</p>
+                <p className="text-sm text-slate-600">
+                  {isGeneratingStrategy 
+                    ? '✨ AI 策略生成中，请查看左侧看板...' 
+                    : '🧠 AI 正在分析客户意图，准备话术...'}
+                </p>
               </div>
             </CardContent>
           </Card>
