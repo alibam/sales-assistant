@@ -150,6 +150,8 @@ export async function analyzeCustomerInput(
     schema: customerProfileSchema,
     prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
 
+🚨 重要：请直接返回 JSON 格式的结构化数据，不要包含任何思考过程标签（如 <think>）或其他文本说明。
+
 【你的核心身份与立场】
 你是一家奔驰 4S 店的数据分析中枢。
 
