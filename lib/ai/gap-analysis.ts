@@ -45,15 +45,15 @@ const timingSchema = z.object({
 });
 
 const decisionUnitSchema = z.object({
-  decision_maker_involved: z.boolean().optional().describe('最终拍板人是否已参与沟通'),
+  decision_maker_involved: z.preprocess((val) => (typeof val === 'string' ? undefined : val), z.boolean().optional()).describe('最终拍板人是否已参与沟通'),
   payer: z.string().optional().describe('实际出钱人'),
-  family_visit_required: z.boolean().optional().describe('是否需要家人后续到店'),
+  family_visit_required: z.preprocess((val) => (typeof val === 'string' ? undefined : val), z.boolean().optional()).describe('是否需要家人后续到店'),
   objection_source: z.string().optional().describe('反对点来自谁'),
 });
 
 const competitorSchema = z.object({
   competing_models: z.array(z.string()).optional().describe('对比的竞品车型'),
-  has_quote: z.boolean().optional().describe('是否已在竞品处拿到报价'),
+  has_quote: z.preprocess((val) => (typeof val === 'string' ? undefined : val), z.boolean().optional()).describe('是否已在竞品处拿到报价'),
   main_conflict: z.enum(['价格', '配置', '品牌', '保值', '续航', '空间', '无', '未知']).optional().describe('最纠结的对比点'),
 });
 
@@ -66,7 +66,7 @@ const dealFactorsSchema = z.object({
 const blockersSchema = z.object({
   main_blocker: z.enum(['价格', '竞品', '决策人', '金融', '置换', '现车', '信任', '时间', '无']).optional().describe('当前促单最大卡点'),
   intensity: z.enum(['高', '中', '低', '无']).optional().describe('卡点强度'),
-  needs_manager: z.boolean().optional().describe('是否需要经理介入'),
+  needs_manager: z.preprocess((val) => (typeof val === 'string' ? undefined : val), z.boolean().optional()).describe('是否需要经理介入'),
 });
 
 /** Complete customer profile zod schema for generateObject */
@@ -229,6 +229,8 @@ export async function analyzeCustomerInput(
 - 如果某个字段在输入中没有提及，不要填写（留空/省略）
 - 对于枚举字段，如果无法确定，使用"未知"
 - 保持提取的信息忠实于原始输入，不要编造
+
+🚨 【数据类型红线】：对于布尔(boolean)类型的字段（如 decision_maker_involved, family_visit_required, has_quote, needs_manager），如果无法确认，【必须直接省略该字段或输出 null】，绝对禁止输出字符串 "未知"！
 ${existingContext}
 ${historyContext}
 
@@ -254,7 +256,6 @@ ${input}
 
   // 手动解析 JSON：从 ```json ... ``` 中提取
   try {
-    // 尝试匹配 ```json ... ``` 代码块
     const jsonBlockMatch = text.match(/```json\s*\n([\s\S]*?)\n```/);
     let jsonString: string;
 
@@ -281,7 +282,7 @@ ${input}
   } catch (error) {
     console.error('[Gap Analysis] JSON 解析失败:', error);
     console.error('[Gap Analysis] 原始文本:', text);
-    throw new Error(`数据提取失败: ${error instanceof Error ? error.message : String(error)}\n原始文本: ${text.substring(0, 500)}...`);
+    throw new Error(`数据提取失败: ${error instanceof Error ? error.message : String(error)}\n原始文本: ${text ? text.substring(0, 500) : '(无文本输出)'}`);
   }
 }
 

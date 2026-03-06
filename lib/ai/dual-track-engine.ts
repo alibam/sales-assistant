@@ -142,6 +142,15 @@ async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutp
 }
 
 /**
+ * 清理文本中的 <think> 标签
+ * 用于从 Reasoning 模型的输出中提取最终文本
+ */
+function cleanThinkTags(text: string): string {
+  // 移除 <think>...</think> 标签及其内容
+  return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+}
+
+/**
  * Generate customer-facing question for Copilot mode.
  * Creates natural, professional scripts for sales to use with customers.
  */
@@ -206,7 +215,7 @@ ${availableGaps}
     prompt,
   });
 
-  return text.trim();
+  return cleanThinkTags(text);
 }
 
 /**
@@ -247,5 +256,5 @@ ${historyContext}
     prompt,
   });
 
-  return text.trim();
+  return cleanThinkTags(text);
 }
