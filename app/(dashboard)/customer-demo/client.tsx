@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { ReasoningBlock } from '@/components/ui/reasoning-block';
 
 interface SeedCustomer {
   id: string;  // 添加 id 字段
@@ -489,7 +490,7 @@ export function CustomerDemoClient({ customer }: Props) {
               {data.summary && (
                 <div className="p-4 bg-slate-50 rounded-lg">
                   <h3 className="font-medium mb-2">📊 {data.title || '策略摘要'}</h3>
-                  <p className="text-sm text-slate-600">{data.summary}</p>
+                  <ReasoningBlock content={data.summary} className="text-sm text-slate-600" />
                 </div>
               )}
             
@@ -500,7 +501,9 @@ export function CustomerDemoClient({ customer }: Props) {
                     {data.talkTracks.map((track: any, idx: number) => (
                       <div key={idx} className="p-4 border rounded-lg">
                         <p className="font-medium mb-2">{track.objective}</p>
-                        <p className="text-sm text-slate-600 italic mb-2">"{track.script}"</p>
+                        <div className="text-sm text-slate-600 italic mb-2">
+                          <ReasoningBlock content={`"${track.script}"`} />
+                        </div>
                         <div className="flex gap-4 text-xs text-slate-400">
                           <span>💡 {track.tone}</span>
                           <span>⏰ {track.whenToUse}</span>
@@ -651,7 +654,7 @@ export function CustomerDemoClient({ customer }: Props) {
                           ? 'bg-slate-900 text-white'
                           : 'bg-slate-100 text-slate-900'
                       }`}>
-                        <p className="text-sm">{msg.content}</p>
+                        <ReasoningBlock content={msg.content} className="text-sm" />
                       </div>
                     </div>
                   </div>
