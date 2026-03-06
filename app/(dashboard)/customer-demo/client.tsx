@@ -91,9 +91,8 @@ export function CustomerDemoClient({ customer }: Props) {
 
           setFollowUpText('');
 
-          if (result.completionRate >= 80) {
-            setIsFollowUpMode(false);
-          }
+          // 拔除自动跳转毒刺：绝对不允许系统自动切换 UI 模式！
+          // 把策略生成的决定权 100% 交还给用户的点击行为
         } else {
           setIsGeneratingStrategy(true);  // 策略生成模式
           

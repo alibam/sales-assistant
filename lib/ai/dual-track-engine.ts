@@ -113,7 +113,7 @@ async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutp
   let aiResponse = '';
   let nextQuestion: string | undefined;
 
-  // 拆除硬阻断：即使完成度达标，也继续生成 AI 话术
+  // 事后复盘模式：冷酷专注，追求 100% 画像
   if (gapResult.gaps.length > 0) {
     // Generate sales-facing question
     nextQuestion = await generateSalesQuestion(
@@ -121,14 +121,11 @@ async function processPostCallMode(input: DualTrackInput): Promise<DualTrackOutp
       gapResult.mergedProfile,
       input.conversationHistory,
     );
+    // 只返回问题，不加任何废话
     aiResponse = `🔍 ${nextQuestion}`;
-    
-    // 如果完成度达标，追加提示
-    if (!shouldContinue) {
-      aiResponse += '\n\n*(💡 画像完成度达标，您可以随时点击生成策略，或继续提问)*';
-    }
   } else {
-    aiResponse = '✅ 客户画像已基本完整（完成度 ≥ 80%），可以进入策略生成阶段。';
+    // 只有 100% 填满，才允许返回完成提示
+    aiResponse = '✅ 客户画像已 100% 完整，可以进入策略生成阶段。';
   }
 
   return {
