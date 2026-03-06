@@ -275,9 +275,14 @@ ${input}
     // 大模型可能在 JSON 字符串值内输出未转义的换行符，导致 JSON.parse 崩溃
     const safeJson = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
 
-    // 解析 JSON - 使用 reviver 函数将所有 null 转换为 undefined
-    // 这样 Zod 的 .optional() 就能正确处理
-    const parsedObject = JSON.parse(safeJson, (key, value) => value === null ? undefined : value);
+    // 解析 JSON - 使用 reviver 函数将所有空值转换为 undefined
+    // 终极空值粉碎机：拦截 null、空字符串、空数组
+    const parsedObject = JSON.parse(safeJson, (key, value) => {
+      if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
+        return undefined;
+      }
+      return value;
+    });
 
     // 使用 Zod 进行类型安全校验
     const validatedProfile = customerProfileSchema.parse(parsedObject);
