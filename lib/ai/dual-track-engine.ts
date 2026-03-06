@@ -145,7 +145,15 @@ async function generateCustomerQuestion(
   // 提取前 3 个高优先级 Gap 作为候选池
   const availableGaps = gaps.slice(0, 3).map(g => `- ${g.description} (优先级: ${g.priority})`).join('\n');
 
+  // 提取并格式化更长的历史记录（保留最近 8 条）
+  const historyContext = conversationHistory && conversationHistory.length > 0
+    ? conversationHistory.slice(-8).map(m => `${m.role === 'user' ? '销售' : 'AI教练'}: ${m.content}`).join('\n')
+    : '无';
+
   const prompt = `你是一个年薪百万的奔驰4S店金牌内训师（Copilot）。销售员正在向你实时汇报客户的最新动态。
+
+【近期对话历史（用于查重，绝对禁止重复提问）】：
+${historyContext}
 
 销售员刚刚的汇报：
 "${userInput}"
@@ -160,6 +168,8 @@ ${availableGaps}
 
 2. 顺水推舟（动态探需）：仔细分析客户刚才的话题。从上面的【待补全画像候选清单】中，挑选 1 个【最顺应当前聊天上下文】的字段进行自然发问。
    🚨 极其重要：如果客户还在看空间、聊配置，绝对不允许跨越阶段去问"预算"或"付款方式"！只有客户主动提及竞品或价格，或者其他话题已聊透时，才能切入资金话题。
+
+3. 防复读机制（极其重要）：发问前，必须仔细检查上面的【近期对话历史】。如果某个话题（如"平时谁开"、"预算多少"、"看重什么配置"）AI教练之前已经教销售问过了，即使该字段目前还在候选清单里，你也【绝对不允许】换个说法再次提问！你必须绕开已问过的话题，切入候选清单里的其他陌生维度。
 
 绝对不要用"不错！"、"太棒了！"这种假大空的机器人赞美。
 话术必须像真人说话一样口语化、接地气。
