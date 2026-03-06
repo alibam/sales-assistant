@@ -92,6 +92,22 @@ export async function generateStrategyStream(
   customerName?: string,
   followUpInput?: string  // 新增：销售员当前的跟进原话
 ): Promise<ReturnType<typeof createStreamableValue<Strategy>>['value']> {
+  // ✅ 运行时验证：使用 safeParse 验证所有输入参数
+  const validationResult = strategyRequestSchema.safeParse({
+    profileData,
+    status,
+    classification,
+    customerId,
+    existingProfile,
+  });
+
+  if (!validationResult.success) {
+    const errorMessage = validationResult.error.errors
+      .map((err) => `${err.path.join('.')}: ${err.message}`)
+      .join('; ');
+    throw new Error(`输入参数验证失败: ${errorMessage}`);
+  }
+
   // ✅ 认证检查（Server Action 也需要鉴权）
   await requireAuth();
 

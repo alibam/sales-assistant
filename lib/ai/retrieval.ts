@@ -5,7 +5,6 @@
 
 import { getEmbedding } from './embedding';
 import { prisma } from '@/lib/db/client';
-import { filterCrossDomainKnowledge as filterCrossDomain } from './domain-guard';
 
 export interface RetrievalResult {
   content: string;
@@ -81,6 +80,3 @@ export async function searchRelevantKnowledge(
     throw new Error(`向量检索失败: ${String(error)}`);
   }
 }
-
-// 导出 filterCrossDomainKnowledge 供测试使用
-export { filterCrossDomain as filterCrossDomainKnowledge };
