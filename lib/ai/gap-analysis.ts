@@ -1,11 +1,13 @@
 /**
  * Gap Analysis Engine — THE CORE MODULE
  *
- * Uses Vercel AI SDK generateObject to extract structured customer profile
+ * Uses Vercel AI SDK generateText to extract structured customer profile
  * data from unstructured sales rep input, identify missing fields (gaps),
  * and generate follow-up prompts.
+ * 
+ * 重构说明：拥抱 Reasoning 模型的思考过程，使用 generateText + 手动 JSON 解析
  */
-import { generateObject } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { getAIModel } from './provider';
 import type {
@@ -124,7 +126,9 @@ const CRITICAL_FIELDS = new Set([
 
 /**
  * Extract structured customer profile data from unstructured sales rep input.
- * Uses Vercel AI SDK generateObject with Claude for structured extraction.
+ * Uses Vercel AI SDK generateText with Reasoning model for structured extraction.
+ * 
+ * 重构说明：拥抱思考过程，使用 generateText + 手动 JSON 解析
  *
  * @param input - Raw natural language input from the sales rep
  * @param existingProfile - Optional existing profile to provide context
@@ -145,12 +149,56 @@ export async function analyzeCustomerInput(
     ? `\n\n【近期对话历史（用于理解上下文）】：\n${conversationHistory.slice(-6).map(m => `${m.role === 'user' ? '销售' : 'AI'}: ${m.content}`).join('\n')}`
     : '';
 
-  const { object } = await generateObject({
+  // 生成 JSON Schema 字符串供模型参考
+  const schemaString = JSON.stringify({
+    scene: {
+      usage_scenario: 'string (optional)',
+      key_motives: 'string[] (optional)',
+      must_haves: 'string[] (optional)',
+      compromisable: 'string[] (optional)',
+    },
+    preference: {
+      intent_model: 'string (optional)',
+      config_preference: 'string[] (optional)',
+      color_and_inventory: 'string (optional)',
+    },
+    budget_payment: {
+      budget_limit: 'string (optional)',
+      payment_method: '"全款" | "贷款" | "分期" | "融资租赁" | "未知" (optional)',
+      price_sensitivity: '"高" | "中" | "低" | "未知" (optional)',
+    },
+    timing: {
+      delivery_timeline: '"3天" | "1周" | "本月" | "不急" | "未知" (optional)',
+      trigger_event: 'string (optional)',
+    },
+    decision_unit: {
+      decision_maker_involved: 'boolean (optional)',
+      payer: 'string (optional)',
+      family_visit_required: 'boolean (optional)',
+      objection_source: 'string (optional)',
+    },
+    competitor: {
+      competing_models: 'string[] (optional)',
+      has_quote: 'boolean (optional)',
+      main_conflict: '"价格" | "配置" | "品牌" | "保值" | "续航" | "空间" | "无" | "未知" (optional)',
+    },
+    deal_factors: {
+      trade_in_info: 'string (optional)',
+      finance_info: 'string (optional)',
+      delivery_acceptance: 'string (optional)',
+    },
+    blockers: {
+      main_blocker: '"价格" | "竞品" | "决策人" | "金融" | "置换" | "现车" | "信任" | "时间" | "无" (optional)',
+      intensity: '"高" | "中" | "低" | "无" (optional)',
+      needs_manager: 'boolean (optional)',
+    },
+  }, null, 2);
+
+  const { text } = await generateText({
     model: getAIModel(),
-    schema: customerProfileSchema,
     prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
 
-🚨 重要：请直接返回 JSON 格式的结构化数据，不要包含任何思考过程标签（如 <think>）或其他文本说明。
+💡 鼓励思考：请先在 <think>...</think> 标签内进行充分的逻辑推理（例如分析哪些是隐性线索、如何映射到字段）。思考结束后，你【必须】将最终的结构化结果放在一个 \`\`\`json 和 \`\`\` 包裹的代码块中返回！
 
 【你的核心身份与立场】
 你是一家奔驰 4S 店的数据分析中枢。
@@ -184,11 +232,56 @@ export async function analyzeCustomerInput(
 ${existingContext}
 ${historyContext}
 
+【JSON Schema 参考】：
+${schemaString}
+
 销售顾问输入：
-${input}`,
+${input}
+
+请按照以下格式输出：
+<think>
+你的思考过程...
+</think>
+
+\`\`\`json
+{
+  "scene": { ... },
+  "preference": { ... },
+  ...
+}
+\`\`\``,
   });
 
-  return object as CustomerProfile;
+  // 手动解析 JSON：从 ```json ... ``` 中提取
+  try {
+    // 尝试匹配 ```json ... ``` 代码块
+    const jsonBlockMatch = text.match(/```json\s*\n([\s\S]*?)\n```/);
+    let jsonString: string;
+
+    if (jsonBlockMatch) {
+      jsonString = jsonBlockMatch[1].trim();
+    } else {
+      // 如果没有代码块，尝试直接提取 JSON 对象
+      const jsonObjectMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonObjectMatch) {
+        jsonString = jsonObjectMatch[0].trim();
+      } else {
+        throw new Error('无法从模型输出中提取 JSON');
+      }
+    }
+
+    // 解析 JSON
+    const parsedObject = JSON.parse(jsonString);
+
+    // 使用 Zod 进行类型安全校验
+    const validatedProfile = customerProfileSchema.parse(parsedObject);
+
+    return validatedProfile as CustomerProfile;
+  } catch (error) {
+    console.error('[Gap Analysis] JSON 解析失败:', error);
+    console.error('[Gap Analysis] 原始文本:', text);
+    throw new Error(`数据提取失败: ${error instanceof Error ? error.message : String(error)}\n原始文本: ${text.substring(0, 500)}...`);
+  }
 }
 
 /**
