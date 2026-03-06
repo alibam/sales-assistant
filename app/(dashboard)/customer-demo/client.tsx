@@ -70,7 +70,7 @@ export function CustomerDemoClient({ customer }: Props) {
       try {
         if (isFollowUpMode) {
           setIsGeneratingStrategy(false);  // 跟进模式，不是生成策略
-          
+
           const result = await handleFollowUp(
             customer.id,  // 使用真实的 customer.id
             followUpText,
@@ -96,7 +96,7 @@ export function CustomerDemoClient({ customer }: Props) {
           // 把策略生成的决定权 100% 交还给用户的点击行为
         } else {
           setIsGeneratingStrategy(true);  // 策略生成模式
-          
+
           // 策略生成：不传入 customer.name（避免硬编码的 Mock 数据污染）
           // 如果需要客户名字，应该从 currentProfile 中提取，或者让 AI 使用中性称呼
           const stream = await generateStrategyStream(
@@ -114,6 +114,15 @@ export function CustomerDemoClient({ customer }: Props) {
         console.error('生成失败:', err);
       }
     });
+  }
+
+  // 独立的策略生成处理函数
+  function handleGenerateStrategy() {
+    setIsFollowUpMode(false);  // 切换到策略生成模式
+    // 使用 setTimeout 确保状态更新后再执行
+    setTimeout(() => {
+      handleGenerate();
+    }, 0);
   }
 
   async function handleReset() {
@@ -601,8 +610,8 @@ export function CustomerDemoClient({ customer }: Props) {
               )}
 
               {/* 策略生成按钮 - 始终可见且可点击 */}
-              <Button 
-                onClick={handleGenerate} 
+              <Button
+                onClick={handleGenerateStrategy}
                 disabled={isPending}
                 className={completionRate >= 80 && !isFollowUpMode ? 'animate-pulse bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700' : ''}
               >
