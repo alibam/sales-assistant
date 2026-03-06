@@ -206,7 +206,7 @@ ${availableGaps}
 话术必须像真人说话一样口语化、接地气。
 
 【输出格式】
-只需要输出教给销售员的话术原句（放在双引号内），不要任何解释。
+请先在 <think>...</think> 标签内进行充分的情绪判断和策略分析。思考结束后，只需要输出教给销售员的话术原句（放在双引号内）。
 
 请生成话术：`;
 
@@ -215,7 +215,8 @@ ${availableGaps}
     prompt,
   });
 
-  return cleanThinkTags(text);
+  // 直接返回包含 <think> 标签的文本，供前端 ReasoningBlock 组件解析
+  return text.trim();
 }
 
 /**
@@ -249,6 +250,8 @@ ${historyContext}
 4. 避免重复之前已经问过的问题
 5. 只返回问题本身，不要加任何前缀
 
+💡 鼓励思考：请先在 <think>...</think> 标签内进行充分的逻辑推理和分析。思考结束后，输出最终的问题。
+
 请生成问题：`;
 
   const { text } = await generateText({
@@ -256,5 +259,6 @@ ${historyContext}
     prompt,
   });
 
-  return cleanThinkTags(text);
+  // 直接返回包含 <think> 标签的文本，供前端 ReasoningBlock 组件解析
+  return text.trim();
 }
