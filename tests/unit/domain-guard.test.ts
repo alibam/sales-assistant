@@ -10,16 +10,9 @@
  */
 
 import { describe, test, expect } from 'vitest';
-
-// 尝试导入实际的函数（应该会失败）
-let filterCrossDomainKnowledge: any;
-try {
-  const retrieval = require('@/lib/ai/retrieval');
-  filterCrossDomainKnowledge = retrieval.filterCrossDomainKnowledge;
-} catch (error) {
-  // 函数不存在，测试会失败
-  filterCrossDomainKnowledge = undefined;
-}
+import { filterCrossDomainKnowledge } from '@/lib/ai/domain-guard';
+import { searchRelevantKnowledge } from '@/lib/ai/retrieval';
+import { TEST_TENANT_IDS } from '@/lib/db/fixtures';
 
 describe('场景一致性守卫', () => {
   test('filterCrossDomainKnowledge 函数应该存在', () => {
@@ -31,12 +24,6 @@ describe('场景一致性守卫', () => {
   });
 
   test('应该过滤掉包含企业/B2B关键词的知识片段（家庭购车客户）', () => {
-    // 如果函数不存在，跳过测试
-    if (!filterCrossDomainKnowledge) {
-      expect(filterCrossDomainKnowledge).toBeDefined();
-      return;
-    }
-
     // Given: 检索到的知识片段包含跨域关键词（企业/B2B）
     const knowledgeChunks = [
       {
@@ -86,12 +73,6 @@ describe('场景一致性守卫', () => {
   });
 
   test('应该过滤掉包含企业/B2B关键词的知识片段（汽车零售客户）', () => {
-    // 如果函数不存在，跳过测试
-    if (!filterCrossDomainKnowledge) {
-      expect(filterCrossDomainKnowledge).toBeDefined();
-      return;
-    }
-
     // Given: 检索到的知识片段包含跨域关键词（企业/B2B）
     const knowledgeChunks = [
       {
@@ -142,9 +123,6 @@ describe('场景一致性守卫', () => {
   test('searchRelevantKnowledge 应该集成场景一致性守卫', async () => {
     // 这个测试验证 searchRelevantKnowledge 是否使用了 filterCrossDomainKnowledge
     // 由于当前实现没有这个功能，测试会失败
-
-    const { searchRelevantKnowledge } = require('@/lib/ai/retrieval');
-    const { TEST_TENANT_IDS } = require('@/lib/db/fixtures');
 
     // Given: 一个家庭购车的查询
     const query = '家庭购车 二胎 空间需求';
