@@ -151,102 +151,276 @@ export function CustomerDemoClient({ customer }: Props) {
         {/* 左侧主轴 (2/3) */}
         <div className="xl:col-span-2 space-y-6">
         
-        {/* A/B/C/D 画像信息区 - shadcn Card */}
+        {/* 客户画像全景档案 - 8大维度完整映射 */}
         <Card>
           <CardHeader>
-            <CardTitle>客户画像 (A/B/C/D)</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>客户全景档案</CardTitle>
+              <Badge variant={statusVariant}>
+                {customer.classification.status} 级客户
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* A: 需求与场景 */}
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar>
-                    <AvatarFallback>🎯</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">A - 需求与场景</span>
-                </div>
-                <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              
+              {/* ① 需求与场景 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>🎯</span> ① 需求与场景
+                </h3>
+                <div className="space-y-2 text-xs">
                   <div>
-                    <span className="text-slate-500 text-xs">使用场景</span>
-                    <p className="font-medium">{currentProfile.scene?.usage_scenario || '未填写'}</p>
+                    <span className="text-slate-500">用车场景</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.scene?.usage_scenario || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-xs">关键动机</span>
-                    <p className="font-medium">{currentProfile.scene?.key_motives?.join(', ') || '未填写'}</p>
-                  </div>
-                </div>
-              </div>
-            
-              {/* B: 车型与偏好 */}
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar>
-                    <AvatarFallback>🚗</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">B - 车型与偏好</span>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-slate-500 text-xs">意向车型</span>
-                    <p className="font-medium">{currentProfile.preference?.intent_model || '未填写'}</p>
+                    <span className="text-slate-500">关键动机</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {currentProfile.scene?.key_motives && currentProfile.scene.key_motives.length > 0 ? (
+                        currentProfile.scene.key_motives.map((m, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{m}</Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-xs">配置偏好</span>
-                    <p className="font-medium">{currentProfile.preference?.config_preference?.join(', ') || '未填写'}</p>
-                  </div>
-                </div>
-              </div>
-            
-              {/* C: 预算与时间 */}
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar>
-                    <AvatarFallback>💰</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">C - 预算与时间</span>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="text-slate-500 text-xs">预算</span>
-                    <p className="font-medium">{currentProfile.budget_payment?.budget_limit || '未填写'}</p>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 text-xs">付款方式</span>
-                    <p className="font-medium">{currentProfile.budget_payment?.payment_method || '未填写'}</p>
+                    <span className="text-slate-500">必须项</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {currentProfile.scene?.must_haves && currentProfile.scene.must_haves.length > 0 ? (
+                        currentProfile.scene.must_haves.map((m, i) => (
+                          <Badge key={i} variant="destructive" className="text-xs">{m}</Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            
-              {/* D: 决策与顾虑 */}
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center gap-3 mb-3">
-                  <Avatar>
-                    <AvatarFallback>🤔</AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium">D - 决策与顾虑</span>
-                </div>
-                <div className="space-y-2 text-sm">
+
+              {/* ② 车型与偏好 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>🚗</span> ② 车型与偏好
+                </h3>
+                <div className="space-y-2 text-xs">
                   <div>
-                    <span className="text-slate-500 text-xs">决策人参与</span>
-                    <p className="font-medium">{currentProfile.decision_unit?.decision_maker_involved ? '是' : '否'}</p>
+                    <span className="text-slate-500">意向车型</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.preference?.intent_model || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-slate-500 text-xs">主要顾虑</span>
-                    <p className="font-medium">{currentProfile.blockers?.main_blocker || '未填写'}</p>
+                    <span className="text-slate-500">配置偏好</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {currentProfile.preference?.config_preference && currentProfile.preference.config_preference.length > 0 ? (
+                        currentProfile.preference.config_preference.map((c, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">颜色偏好</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.preference?.color_and_inventory || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
                   </div>
                 </div>
               </div>
+
+              {/* ③ 预算与付款 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>💰</span> ③ 预算与付款
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">预算上限</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.budget_payment?.budget_limit || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">付款方式</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.budget_payment?.payment_method || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">价格敏感度</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.budget_payment?.price_sensitivity || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ④ 时间窗口 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>⏰</span> ④ 时间窗口
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">提车时间</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.timing?.delivery_timeline || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">触发事件</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.timing?.trigger_event || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑤ 决策单元 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>👥</span> ⑤ 决策单元
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">决策人参与</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.decision_unit?.decision_maker_involved !== undefined ? (
+                        currentProfile.decision_unit.decision_maker_involved ? '✅ 已参与' : '❌ 未参与'
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">实际出钱人</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.decision_unit?.payer || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">需家人到店</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.decision_unit?.family_visit_required !== undefined ? (
+                        currentProfile.decision_unit.family_visit_required ? '需要' : '不需要'
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑥ 竞品与对比 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>⚔️</span> ⑥ 竞品与对比
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">竞品车型</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {currentProfile.competitor?.competing_models && currentProfile.competitor.competing_models.length > 0 ? (
+                        currentProfile.competitor.competing_models.map((c, i) => (
+                          <Badge key={i} variant="secondary" className="text-xs">{c}</Badge>
+                        ))
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">已拿竞品报价</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.competitor?.has_quote !== undefined ? (
+                        currentProfile.competitor.has_quote ? '是' : '否'
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">主要纠结点</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.competitor?.main_conflict || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑦ 交易要素 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>📋</span> ⑦ 交易要素
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">置换情况</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.deal_factors?.trade_in_info || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">金融情况</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.deal_factors?.finance_info || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">交车接受度</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.deal_factors?.delivery_acceptance || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ⑧ 风险与阻塞 */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                  <span>⚠️</span> ⑧ 风险与阻塞
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-slate-500">最大卡点</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.blockers?.main_blocker || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">卡点强度</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.blockers?.intensity || <Badge variant="outline" className="text-xs">待采集</Badge>}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">需经理介入</span>
+                    <p className="font-medium text-slate-900 mt-1">
+                      {currentProfile.blockers?.needs_manager !== undefined ? (
+                        currentProfile.blockers.needs_manager ? '需要' : '不需要'
+                      ) : (
+                        <Badge variant="outline" className="text-xs">待采集</Badge>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
             </div>
             
             <Separator className="my-4" />
             
-            {/* 当前状态 - 使用 shadcn Badge */}
-            <div className="flex items-center gap-3">
-              <Badge variant={statusVariant}>
-                {customer.classification.status} 级客户
-              </Badge>
-              <p className="text-sm text-slate-600">{customer.classification.reason}</p>
+            {/* 分类原因 */}
+            <div className="text-xs text-slate-600">
+              <span className="font-medium">分类原因：</span>{customer.classification.reason}
             </div>
           </CardContent>
         </Card>
