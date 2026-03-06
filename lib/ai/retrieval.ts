@@ -5,6 +5,7 @@
 
 import { getEmbedding } from './embedding';
 import { prisma } from '@/lib/db/client';
+import { filterCrossDomainKnowledge as filterCrossDomain } from './domain-guard';
 
 export interface RetrievalResult {
   content: string;
@@ -22,12 +23,14 @@ interface QueryResult {
  * @param query - 查询文本（如："BMW X5 竞品对比"）
  * @param tenantId - 租户 ID（必须，用于数据隔离）
  * @param limit - 返回结果数量（默认 3）
+ * @param similarityThreshold - 相似度阈值（默认 0.7，过滤低相似度结果）
  * @returns 相似度最高的文档片段数组
  */
 export async function searchRelevantKnowledge(
   query: string,
   tenantId: string,
-  limit: number = 3
+  limit: number = 3,
+  similarityThreshold: number = 0.7
 ): Promise<RetrievalResult[]> {
   // 验证输入
   if (!query || query.trim().length === 0) {
@@ -63,11 +66,13 @@ export async function searchRelevantKnowledge(
       LIMIT ${limit}
     `;
 
-    // 3. 转换为相似度（1 - distance）
-    return results.map((r: QueryResult) => ({
-      content: r.content,
-      similarity: 1 - r.distance,
-    }));
+    // 3. 转换为相似度（1 - distance）并过滤低相似度结果
+    return results
+      .map((r: QueryResult) => ({
+        content: r.content,
+        similarity: 1 - r.distance,
+      }))
+      .filter((r) => r.similarity >= similarityThreshold);
   } catch (error) {
     // 提供更详细的错误信息
     if (error instanceof Error) {
@@ -76,3 +81,6 @@ export async function searchRelevantKnowledge(
     throw new Error(`向量检索失败: ${String(error)}`);
   }
 }
+
+// 导出 filterCrossDomainKnowledge 供测试使用
+export { filterCrossDomain as filterCrossDomainKnowledge };

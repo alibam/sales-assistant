@@ -20,6 +20,12 @@ import { createSalesMachine } from '../xstate/sales-machine';
 import { createActor, waitFor } from 'xstate';
 import { TEST_TENANT_IDS } from '../db/fixtures';
 import { searchRelevantKnowledge } from './retrieval';
+import {
+  detectCustomerDomain,
+  filterCrossDomainKnowledge,
+  validateStrategyDomain,
+  type CustomerDomain,
+} from './domain-guard';
 
 // ── Zod Schema for Strategy Output ──
 
@@ -137,6 +143,14 @@ export async function generateStrategyStream(
   // 启动流式生成（异步执行）
   (async () => {
     try {
+      // ── 步骤 1：检测客户领域 ──
+      const customerDomain = detectCustomerDomain(
+        followUpInput || '',
+        mergedProfile
+      );
+
+      console.log('[Domain Guard] 检测到客户领域:', customerDomain);
+
       // 构建客户基础信息注入
       const customerInfo = buildCustomerInfo(mergedProfile as Partial<CustomerProfile>, customerName);
 
@@ -173,20 +187,29 @@ export async function generateStrategyStream(
 
       // 2. 执行检索
       let knowledgeContext = '';
-      let relevantDocs: Array<{ content: string }> = [];
+      let relevantDocs: Array<{ content: string; similarity: number }> = [];
 
       if (knowledgeQuery.trim()) {
         try {
           const session = await requireAuth();
-          relevantDocs = await searchRelevantKnowledge(
+          const rawDocs = await searchRelevantKnowledge(
             knowledgeQuery,
             session.tenantId,
-            3 // Top 3 最相关的文档片段
+            5, // 检索 Top 5，然后过滤
+            0.7 // 相似度阈值
+          );
+
+          // ── 步骤 2：过滤跨域知识片段 ──
+          relevantDocs = filterCrossDomainKnowledge(
+            rawDocs,
+            customerDomain,
+            0.7
           );
 
           // 增加日志
           console.log('[RAG Query]:', knowledgeQuery);
-          console.log('[RAG Hits]:', relevantDocs.length);
+          console.log('[RAG Raw Hits]:', rawDocs.length);
+          console.log('[RAG Filtered Hits]:', relevantDocs.length);
           if (relevantDocs.length > 0) {
             console.log('[RAG Content Preview]:', relevantDocs[0].content.substring(0, 100) + '...');
           }
@@ -202,6 +225,9 @@ export async function generateStrategyStream(
         }
       }
 
+      // ── 步骤 3：生成策略（带领域约束） ──
+      const domainConstraint = buildDomainConstraint(customerDomain);
+
       // 🚨 排雷 2：使用 streamText 替代 streamObject，手动过滤 <think> 标签
       const result = await streamText({
         model: getAIModel(),
@@ -210,6 +236,8 @@ export async function generateStrategyStream(
 ${customerInfo}
 
 ${stageConstraints}
+
+${domainConstraint}
 
 ${knowledgeContext ? `
 【企业内部知识库参考（你的策略必须优先且严格基于以下绝密资料生成）】
@@ -318,7 +346,7 @@ ${JSON.stringify({
         }
       }
 
-      // 最终解析
+      // ── 步骤 4：最终解析并验证领域一致性 ──
       try {
         const jsonBlockMatch = accumulatedText.match(/```json\s*\n([\s\S]*?)\n```/);
         if (jsonBlockMatch) {
@@ -326,7 +354,30 @@ ${JSON.stringify({
           const safeJson = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
           const parsedStrategy = JSON.parse(safeJson);
           const validatedStrategy = strategySchema.parse(parsedStrategy);
-          streamable.update(validatedStrategy);
+
+          // ── 步骤 5：验证策略领域一致性 ──
+          const domainValidation = validateStrategyDomain(
+            validatedStrategy,
+            customerDomain
+          );
+
+          if (!domainValidation.isValid) {
+            console.error('[Domain Guard] 策略违反领域一致性:', domainValidation.violations);
+
+            // ── 步骤 6：触发 Fallback ──
+            // 如果策略违规，使用 fallback 策略
+            const fallbackStrategy = generateFallbackStrategy(
+              mergedProfile as Partial<CustomerProfile>,
+              finalStatus,
+              classification,
+              customerDomain
+            );
+
+            streamable.update(fallbackStrategy);
+          } else {
+            console.log('[Domain Guard] 策略通过领域一致性验证');
+            streamable.update(validatedStrategy);
+          }
         } else {
           throw new Error('无法从模型输出中提取 JSON');
         }
@@ -338,7 +389,7 @@ ${JSON.stringify({
 
       // 完成
       streamable.done();
-      
+
     } catch (error) {
       console.error('[Strategy Server] Stream error:', error);
       streamable.error(error instanceof Error ? error.message : 'Stream failed');
@@ -519,4 +570,125 @@ function buildStageConstraints(status: 'A' | 'B' | 'C' | 'D'): string {
   parts.push('');
 
   return parts.join('\n');
+}
+
+/**
+ * 构建领域约束指令
+ *
+ * 根据客户领域，添加领域一致性约束
+ */
+function buildDomainConstraint(domain: CustomerDomain): string {
+  const parts: string[] = [];
+
+  parts.push('🚨 领域一致性约束（绝对红线）：');
+  parts.push('');
+
+  if (domain === 'automotive-retail') {
+    parts.push('【汽车零售领域】');
+    parts.push('');
+    parts.push('✅ 必须聚焦：');
+    parts.push('- 家庭购车场景（如：二胎、空间需求、安全座椅）');
+    parts.push('- 个人消费者需求（如：试驾、到店看车、预算考虑）');
+    parts.push('- 汽车产品特性（如：宝马X3、后排空间、安全配置）');
+    parts.push('');
+    parts.push('❌ 绝对禁止：');
+    parts.push('- 企业客户、公司采购、对公账户');
+    parts.push('- 额度审批、三方会议、产品经理、技术团队');
+    parts.push('- 招标、合同审批、商务车辆');
+    parts.push('- 任何 B2B 相关的词汇和场景');
+    parts.push('');
+    parts.push('⚠️ 警告：如果你的策略中出现任何上述禁止词汇，将被视为严重违规！');
+  } else if (domain === 'enterprise-b2b') {
+    parts.push('【企业/B2B领域】');
+    parts.push('');
+    parts.push('✅ 必须聚焦：');
+    parts.push('- 企业采购流程（如：审批、对公账户、合同）');
+    parts.push('- 商务需求（如：品牌形象、维护成本）');
+    parts.push('');
+    parts.push('❌ 绝对禁止：');
+    parts.push('- 家庭购车、个人消费者场景');
+  } else {
+    parts.push('【未知领域】');
+    parts.push('- 请根据客户画像谨慎生成策略');
+  }
+
+  parts.push('');
+
+  return parts.join('\n');
+}
+
+/**
+ * 生成 Fallback 策略
+ *
+ * 当 AI 生成的策略违反领域一致性时，使用 deterministic 的 fallback 策略
+ */
+function generateFallbackStrategy(
+  profileData: Partial<CustomerProfile>,
+  status: 'A' | 'B' | 'C' | 'D',
+  classification: ClassificationResult,
+  domain: CustomerDomain
+): Strategy {
+  console.log('[Fallback] 使用 Fallback 策略，领域:', domain);
+
+  // 根据领域生成不同的 fallback 策略
+  if (domain === 'automotive-retail') {
+    return {
+      title: '家庭购车需求深度挖掘策略',
+      summary: '[Fallback 策略] 针对家庭购车客户，重点了解用车场景、家庭结构和安全需求，避免过早推销。',
+      priority: '高',
+      talkTracks: [
+        {
+          objective: '了解家庭用车场景',
+          script: '您平时主要是什么场景用车呢？家里有几口人？',
+          whenToUse: '初次接触时',
+          tone: '共情式',
+        },
+        {
+          objective: '探寻安全需求',
+          script: '您对车辆的安全配置有什么特别的要求吗？比如儿童安全座椅接口？',
+          whenToUse: '了解需求时',
+          tone: '顾问式',
+        },
+      ],
+      actionPlan: [
+        {
+          step: '收集家庭用车场景信息',
+          owner: '销售顾问',
+          dueWindow: '本次沟通',
+          expectedSignal: '客户主动分享家庭情况',
+        },
+        {
+          step: '安排试驾体验',
+          owner: '销售顾问',
+          dueWindow: '3 天内',
+          expectedSignal: '客户同意试驾',
+        },
+      ],
+      nextFollowUp: '3 天后跟进试驾安排，重点关注客户对空间和安全配置的反馈。',
+    };
+  } else {
+    // 通用 fallback 策略
+    return {
+      title: '客户需求深度挖掘策略',
+      summary: '[Fallback 策略] 重点了解客户需求和购车动机，建立信任关系。',
+      priority: '中',
+      talkTracks: [
+        {
+          objective: '了解购车动机',
+          script: '您这次购车主要是出于什么考虑呢？',
+          whenToUse: '初次接触时',
+          tone: '共情式',
+        },
+      ],
+      actionPlan: [
+        {
+          step: '收集客户需求信息',
+          owner: '销售顾问',
+          dueWindow: '本次沟通',
+          expectedSignal: '客户主动分享需求',
+        },
+      ],
+      nextFollowUp: '3 天后跟进，了解客户的最新想法。',
+    };
+  }
 }
