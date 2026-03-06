@@ -11,47 +11,35 @@ import { requireAuth } from '@/lib/auth/session';
 import { CustomerDemoClient } from './client';
 import type { CustomerProfile } from '@/lib/ai/types';
 import { TEST_CUSTOMER_IDS } from '@/lib/db/fixtures';
-
-// 种子用户数据
-const SEED_CUSTOMER = {
-  id: TEST_CUSTOMER_IDS.ZHANG_WEI,  // 添加 id 字段
-  name: '张伟',
-  profile: {
-    scene: {
-      usage_scenario: '家庭用车',
-      key_motives: ['安全性', '空间大'],
-      must_haves: ['自动驾驶', '大空间'],
-      compromisable: ['品牌'],
-    },
-    preference: {
-      intent_model: 'SUV',
-      config_preference: ['智能驾驶', '全景天窗'],
-      color_and_inventory: '白色优先',
-    },
-    budget_payment: {
-      budget_limit: '30万',
-      payment_method: '全款' as const,
-    },
-    timing: {
-      delivery_timeline: '本月' as const,
-    },
-    decision_unit: {
-      decision_maker_involved: true,
-    },
-    blockers: {
-      main_blocker: '价格' as const,
-    },
-  } as CustomerProfile,
-  classification: {
-    status: 'B' as const,
-    reason: '预算充足，需求明确，但还在对比阶段',
-    confidence: 'high' as const,
-  },
-};
+import { prisma } from '@/lib/db/client';
 
 export default async function CustomerDemoPage() {
   // 验证登录状态
-  await requireAuth();
+  const session = await requireAuth();
   
-  return <CustomerDemoClient customer={SEED_CUSTOMER} />;
+  // 从数据库中读取真实的客户数据
+  const customer = await prisma.customer.findUnique({
+    where: {
+      id: TEST_CUSTOMER_IDS.ZHANG_WEI,
+      tenantId: session.tenantId,
+    },
+  });
+
+  if (!customer) {
+    throw new Error('Customer not found');
+  }
+
+  // 将数据库数据转换为客户端需要的格式
+  const customerData = {
+    id: customer.id,
+    name: customer.name,
+    profile: customer.profileData as CustomerProfile,  // 使用 profileData 字段
+    classification: {
+      status: customer.status,
+      reason: '',  // 暂时使用空字符串，后续可以从 SalesStateHistory 中读取
+      confidence: 'high' as const,
+    },
+  };
+  
+  return <CustomerDemoClient customer={customerData} />;
 }
