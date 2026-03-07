@@ -194,6 +194,10 @@ export async function analyzeCustomerInput(
     },
   }, null, 2);
 
+  console.log('[Gap Analysis] 开始调用模型...');
+  console.log('[Gap Analysis] 模型名称:', process.env.AI_MODEL_NAME);
+  console.log('[Gap Analysis] 输入文本长度:', input.length);
+
   const { text } = await generateText({
     model: getAIModel(),
     prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
@@ -267,8 +271,8 @@ ${input}
 \`\`\``,
   });
 
-  // 手动解析 JSON：从 ```json ... ``` 中提取
-  // 增加详细日志和更强的容错处理
+  console.log('[Gap Analysis] 模型调用完成');
+  console.log('[Gap Analysis] 返回文本长度:', text?.length || 0);
   console.log('[Gap Analysis] 模型原始输出（前 500 字符）:', text.substring(0, 500));
   
   try {
