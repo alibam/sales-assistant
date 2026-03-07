@@ -2,91 +2,40 @@
  * AI Provider Configuration
  * 
  * Centralized, environment-driven AI provider setup using @ai-sdk/openai.
- * Supports OpenAI-compatible APIs including:
- * - Third-party providers (development)
- * - Local Qwen inference service (production)
- * - Official OpenAI API
+ * 
+ * 注意：此文件已逐渐被 task-executor.ts 替代
+ * - gap-analysis 使用 task-executor（通过 model-registry）
+ * - strategy-generation 仍使用此文件（需要 streaming 支持）
  */
-import { createOpenAI } from '@ai-sdk/openai';
+import { getModel } from './model-registry';
 
 /**
- * Validate that all required environment variables are set.
- * @throws Error if any required variable is missing
- */
-function validateEnvironment(): void {
-  const required = ['OPENAI_BASE_URL', 'OPENAI_API_KEY', 'AI_MODEL_NAME'];
-  const missing = required.filter((key) => !process.env[key]);
-  
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}\n` +
-      'Please check your .env file and ensure all AI provider variables are set.'
-    );
-  }
-}
-
-/**
- * Create and configure the OpenAI-compatible provider.
- * Reads configuration from environment variables.
- */
-function createAIProvider() {
-  validateEnvironment();
-  
-  console.log('[AI Provider] 初始化 AI Provider');
-  console.log('[AI Provider] Base URL:', process.env.OPENAI_BASE_URL);
-  console.log('[AI Provider] Model Name:', process.env.AI_MODEL_NAME);
-  
-  return createOpenAI({
-    baseURL: process.env.OPENAI_BASE_URL!,
-    apiKey: process.env.OPENAI_API_KEY!,
-    compatibility: 'compatible', // 使用兼容模式而不是严格模式
-  });
-}
-
-/** Singleton provider instance */
-let providerInstance: ReturnType<typeof createOpenAI> | null = null;
-
-/**
- * Get the configured AI provider instance.
- * Creates the provider on first call and caches it.
+ * Get AI model for strategy generation (streaming support)
  * 
- * @returns Configured OpenAI-compatible provider
- * @throws Error if environment variables are not set
- */
-export function getAIProvider() {
-  if (!providerInstance) {
-    providerInstance = createAIProvider();
-  }
-  return providerInstance;
-}
-
-/**
- * Get the configured AI model for use with Vercel AI SDK.
+ * 此函数保留用于需要 streaming 支持的场景（如 strategy-server.ts）
+ * 其他场景建议使用 task-executor.ts
  * 
- * @returns Configured model instance ready for generateObject/generateText
- * @throws Error if environment variables are not set
- * 
- * @example
- * ```ts
- * import { generateObject } from 'ai';
- * import { getAIModel } from './provider';
- * 
- * const { object } = await generateObject({
- *   model: getAIModel(),
- *   schema: mySchema,
- *   prompt: 'Extract data...'
- * });
- * ```
+ * @returns Model instance for Vercel AI SDK
  */
 export function getAIModel() {
-  const provider = getAIProvider();
-  const modelName = process.env.AI_MODEL_NAME!;
-  return provider(modelName);
+  // 默认使用 aliyun-qwen3.5-plus（支持 streaming 和 reasoning）
+  // 策略生成任务使用此模型
+  return getModel('aliyun-qwen3.5-plus');
+}
+
+/**
+ * 兼容旧接口（已废弃，使用 getAIModel 代替）
+ * @deprecated 请使用 getAIModel()
+ */
+export function getLegacyModel() {
+  const modelName = process.env.AI_MODEL_NAME || 'qwen3.5-plus';
+  return getModel(modelName);
 }
 
 /**
  * Clear the cached provider instance (useful for testing).
  */
 export function clearProviderCache(): void {
-  providerInstance = null;
+  // model-registry 内部有自己的缓存清理
+  // 此函数保留作为兼容接口
 }

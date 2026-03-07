@@ -9,7 +9,8 @@
  */
 import { generateText } from 'ai';
 import { z } from 'zod';
-import { getAIModel } from './provider';
+import { executeTextTask } from './task-executor';
+import type { AiTaskResult } from './task-executor';
 import type {
   CustomerProfile,
   ProfileGap,
@@ -200,8 +201,8 @@ export async function analyzeCustomerInput(
 
   let text: string;
   try {
-    const result = await generateText({
-      model: getAIModel(),
+    const taskResult: AiTaskResult<string> = await executeTextTask({
+      taskType: 'gap-analysis',
       prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
 
 💡 鼓励思考：你可以先在 <think>...</think> 标签内进行充分的逻辑推理（可选）。最终，你【必须】将结构化结果放在一个 \`\`\`json 和 \`\`\` 包裹的代码块中返回！
@@ -273,14 +274,21 @@ ${input}
 \`\`\``,
     });
     
-    console.log('[Gap Analysis] generateText 返回结果:', {
-      hasText: !!result.text,
-      textLength: result.text?.length || 0,
-      finishReason: result.finishReason,
-      usage: result.usage,
+    console.log('[Gap Analysis] executeTextTask 返回结果:', {
+      ok: taskResult.ok,
+      source: taskResult.ok ? taskResult.source : 'N/A',
+      model: taskResult.ok ? taskResult.model : taskResult.model,
     });
     
-    text = result.text;
+    // 检查执行结果
+    if (!taskResult.ok) {
+      console.error('[Gap Analysis] 任务执行失败:', taskResult.message);
+      console.error('[Gap Analysis] 错误类型:', taskResult.errorType);
+      console.warn('[Gap Analysis] 使用 fallback：返回空客户画像');
+      return {} as CustomerProfile;
+    }
+    
+    text = taskResult.data;
     console.log('[Gap Analysis] 模型调用完成');
     console.log('[Gap Analysis] 返回文本长度:', text?.length || 0);
     
