@@ -149,4 +149,81 @@ describe('场景一致性守卫', () => {
 
     console.log('✅ searchRelevantKnowledge 正确过滤了跨域知识');
   });
+
+  test('应该检测金融/B2B污染词：融资、年营收、个人资产', () => {
+    // Given: 包含金融/B2B污染词的知识片段
+    const knowledgeChunks = [
+      {
+        content: '企业主融资需求可以通过我们的金融方案解决',
+        similarity: 0.85,
+      },
+      {
+        content: '客户年营收达到500万，可以申请更高额度',
+        similarity: 0.80,
+      },
+      {
+        content: '个人资产评估是融资审批的重要环节',
+        similarity: 0.75,
+      },
+      {
+        content: '家庭购车客户关注孩子的安全，建议推荐安全配置高的车型',
+        similarity: 0.82,
+      },
+    ];
+
+    // When: 调用场景一致性守卫（汽车零售领域）
+    const filtered = filterCrossDomainKnowledge(knowledgeChunks, 'automotive-retail');
+
+    // Then: 应该过滤掉包含金融/B2B污染词的片段
+    expect(filtered.length).toBe(1);
+
+    // 验证保留的片段不包含金融/B2B污染词
+    filtered.forEach((chunk: any) => {
+      const content = chunk.content.toLowerCase();
+      expect(content).not.toContain('融资');
+      expect(content).not.toContain('年营收');
+      expect(content).not.toContain('个人资产');
+      expect(content).not.toContain('企业主');
+      expect(content).not.toContain('金融方案');
+      expect(content).not.toContain('额度');
+    });
+
+    console.log('✅ 成功过滤掉金融/B2B污染词');
+  });
+
+  test('应该检测更多金融/B2B污染词：企业扩张、资金需求、融资成本、放款、授信', () => {
+    // Given: 包含更多金融/B2B污染词的知识片段
+    const knowledgeChunks = [
+      {
+        content: '企业扩张需要资金需求支持，我们提供低融资成本方案',
+        similarity: 0.85,
+      },
+      {
+        content: '放款速度快，授信额度高，适合企业客户',
+        similarity: 0.80,
+      },
+      {
+        content: '家庭购车客户关注二胎需求，建议推荐宝马X3的后排空间',
+        similarity: 0.82,
+      },
+    ];
+
+    // When: 调用场景一致性守卫（汽车零售领域）
+    const filtered = filterCrossDomainKnowledge(knowledgeChunks, 'automotive-retail');
+
+    // Then: 应该过滤掉包含金融/B2B污染词的片段
+    expect(filtered.length).toBe(1);
+
+    // 验证保留的片段不包含金融/B2B污染词
+    filtered.forEach((chunk: any) => {
+      const content = chunk.content.toLowerCase();
+      expect(content).not.toContain('企业扩张');
+      expect(content).not.toContain('资金需求');
+      expect(content).not.toContain('融资成本');
+      expect(content).not.toContain('放款');
+      expect(content).not.toContain('授信');
+    });
+
+    console.log('✅ 成功过滤掉更多金融/B2B污染词');
+  });
 });

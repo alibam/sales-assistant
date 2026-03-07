@@ -87,7 +87,29 @@ export function detectCustomerDomain(
     '宝马x3',
     '奔驰glc',
     '后排空间',
+    '家庭用车',
+    '到店看现车',
   ];
+
+  // 检查 profileData 强信号
+  if (profileData) {
+    const profileText = JSON.stringify(profileData).toLowerCase();
+
+    // 强信号：家庭购车场景
+    const hasRetailSignals =
+      profileText.includes('二胎') ||
+      profileText.includes('家庭用车') ||
+      profileText.includes('后排空间') ||
+      profileText.includes('安全座椅') ||
+      profileText.includes('宝马x3') ||
+      profileText.includes('到店看现车') ||
+      profileText.includes('孩子');
+
+    if (hasRetailSignals) {
+      console.log('[Domain Guard] profileData 包含家庭购车强信号，强制收敛为 automotive-retail');
+      return 'automotive-retail';
+    }
+  }
 
   // 统计关键词出现次数
   const enterpriseCount = enterpriseKeywords.filter((keyword) =>
@@ -140,6 +162,22 @@ export function filterCrossDomainKnowledge(
     '增值税发票',
     '品牌形象',
     '维护成本',
+    '融资',
+    '贷款',
+    '资金需求',
+    '企业扩张',
+    '营收',
+    '年营收',
+    '个人资产',
+    '融资成本',
+    '授信',
+    '放款',
+    '审批速度',
+    '额度',
+    '对公',
+    '企业主融资',
+    '金融方案',
+    '金融专员',
   ];
 
   return chunks.filter((chunk) => {
@@ -197,6 +235,21 @@ export function validateStrategyDomain(
     '商务车辆',
     '公司用车',
     '企业采购',
+    '融资',
+    '贷款',
+    '资金需求',
+    '企业扩张',
+    '营收',
+    '年营收',
+    '个人资产',
+    '融资成本',
+    '授信',
+    '放款',
+    '审批速度',
+    '额度',
+    '对公',
+    '企业主融资',
+    '金融方案',
   ];
 
   // 如果是汽车零售领域，检查是否包含企业/B2B关键词
@@ -235,6 +288,14 @@ export function validateStrategyDomain(
           violations.push(`行动计划 ${index + 1} 包含跨域关键词: ${keyword}`);
         }
       });
+    });
+
+    // 检查下次跟进
+    const nextFollowUpLower = strategy.nextFollowUp.toLowerCase();
+    enterpriseKeywords.forEach((keyword) => {
+      if (nextFollowUpLower.includes(keyword.toLowerCase())) {
+        violations.push(`下次跟进包含跨域关键词: ${keyword}`);
+      }
     });
   }
 

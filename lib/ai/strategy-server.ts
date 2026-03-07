@@ -133,7 +133,8 @@ export async function generateStrategyStream(
   // ✅ M3: 使用 XState 状态机评估客户等级并写入数据库
   if (customerId) {
     try {
-      const tenantId = TEST_TENANT_IDS.AUTOMAX; // Use Type-Safe fixture
+      const session = await requireAuth();
+      const tenantId = session.tenantId; // 从 session 获取 tenantId
       const machine = createSalesMachine(tenantId, customerId, mergedProfile as CustomerProfile);
       const actor = createActor(machine);
       actor.start();
@@ -340,26 +341,7 @@ ${JSON.stringify({
           accumulatedText = accumulatedText.substring(thinkEndIndex);
         }
 
-        // 只有在 </think> 之后才开始解析 JSON
-        if (isAfterThinkTag) {
-          // 尝试提取并解析 JSON
-          const jsonBlockMatch = accumulatedText.match(/```json\s*\n([\s\S]*?)\n```/);
-          if (jsonBlockMatch) {
-            try {
-              const jsonString = jsonBlockMatch[1].trim();
-              // 🚨 排雷：清洗换行符
-              const safeJson = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
-              const parsedStrategy = JSON.parse(safeJson);
-
-              // 验证 schema
-              const validatedStrategy = strategySchema.parse(parsedStrategy);
-              streamable.update(validatedStrategy);
-            } catch (error) {
-              // JSON 尚未完整，继续累加
-              console.log('[Strategy Server] Partial JSON, continuing...');
-            }
-          }
-        }
+        // 不在循环中 stream，只累加文本
       }
 
       // ── 步骤 4：最终解析并验证领域一致性 ──
