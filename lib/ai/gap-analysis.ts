@@ -273,9 +273,22 @@ ${input}
 \`\`\``,
     });
     
+    console.log('[Gap Analysis] generateText 返回结果:', {
+      hasText: !!result.text,
+      textLength: result.text?.length || 0,
+      finishReason: result.finishReason,
+      usage: result.usage,
+    });
+    
     text = result.text;
     console.log('[Gap Analysis] 模型调用完成');
     console.log('[Gap Analysis] 返回文本长度:', text?.length || 0);
+    
+    // 如果返回文本为空，直接使用 fallback
+    if (!text || text.length === 0) {
+      console.warn('[Gap Analysis] 模型返回空文本，使用 fallback');
+      return {} as CustomerProfile;
+    }
   } catch (error) {
     console.error('[Gap Analysis] 模型调用失败:', error);
     console.error('[Gap Analysis] 错误详情:', error instanceof Error ? error.message : String(error));
