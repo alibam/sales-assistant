@@ -250,6 +250,7 @@ export function validateStrategyDomain(
     '对公',
     '企业主融资',
     '金融方案',
+    '金融专员',
   ];
 
   // 如果是汽车零售领域，检查是否包含企业/B2B关键词

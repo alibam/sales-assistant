@@ -18,7 +18,6 @@ import type { ClassificationResult } from '../xstate/state-evaluator';
 import { requireAuth } from '../auth/session';
 import { createSalesMachine } from '../xstate/sales-machine';
 import { createActor, waitFor } from 'xstate';
-import { TEST_TENANT_IDS } from '../db/fixtures';
 import { searchRelevantKnowledge } from './retrieval';
 import {
   detectCustomerDomain,
