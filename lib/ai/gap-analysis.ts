@@ -198,9 +198,11 @@ export async function analyzeCustomerInput(
   console.log('[Gap Analysis] 模型名称:', process.env.AI_MODEL_NAME);
   console.log('[Gap Analysis] 输入文本长度:', input.length);
 
-  const { text } = await generateText({
-    model: getAIModel(),
-    prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
+  let text: string;
+  try {
+    const result = await generateText({
+      model: getAIModel(),
+      prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
 
 💡 鼓励思考：你可以先在 <think>...</think> 标签内进行充分的逻辑推理（可选）。最终，你【必须】将结构化结果放在一个 \`\`\`json 和 \`\`\` 包裹的代码块中返回！
 
@@ -269,10 +271,19 @@ ${input}
   ...
 }
 \`\`\``,
-  });
+    });
+    
+    text = result.text;
+    console.log('[Gap Analysis] 模型调用完成');
+    console.log('[Gap Analysis] 返回文本长度:', text?.length || 0);
+  } catch (error) {
+    console.error('[Gap Analysis] 模型调用失败:', error);
+    console.error('[Gap Analysis] 错误详情:', error instanceof Error ? error.message : String(error));
+    // 使用 fallback
+    console.warn('[Gap Analysis] 使用 fallback：返回空客户画像');
+    return {} as CustomerProfile;
+  }
 
-  console.log('[Gap Analysis] 模型调用完成');
-  console.log('[Gap Analysis] 返回文本长度:', text?.length || 0);
   console.log('[Gap Analysis] 模型原始输出（前 500 字符）:', text.substring(0, 500));
   
   try {

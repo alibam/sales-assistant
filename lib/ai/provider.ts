@@ -32,10 +32,14 @@ function validateEnvironment(): void {
 function createAIProvider() {
   validateEnvironment();
   
+  console.log('[AI Provider] 初始化 AI Provider');
+  console.log('[AI Provider] Base URL:', process.env.OPENAI_BASE_URL);
+  console.log('[AI Provider] Model Name:', process.env.AI_MODEL_NAME);
+  
   return createOpenAI({
     baseURL: process.env.OPENAI_BASE_URL!,
     apiKey: process.env.OPENAI_API_KEY!,
-    compatibility: 'strict', // Use strict OpenAI compatibility mode
+    compatibility: 'compatible', // 使用兼容模式而不是严格模式
   });
 }
 
