@@ -349,6 +349,10 @@ ${input}
       if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
         return undefined;
       }
+      // 🚨 排雷 2：清理字符串值中的多余空格（如 "1 周" -> "1周"）
+      if (typeof value === 'string') {
+        return value.replace(/\s+/g, '');
+      }
       return value;
     });
 
