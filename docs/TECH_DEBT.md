@@ -317,3 +317,44 @@ Minimax API 虽然声称兼容 OpenAI 协议，但不支持真正的流式响应
 **Priority:** P3 (已有替代方案，不影响核心功能)
 
 **Status:** 已记录，暂不修复
+
+
+
+### Issue 13: Strategy Generation Not Fully Migrated to Unified Task Executor
+**Location:** `lib/ai/strategy-server.ts`
+
+**Description:**
+Model adaptation foundation is complete, but strategy-generation is still only partially connected to the unified task execution layer. Streaming semantics are not yet fully unified under `task-executor`.
+
+**Risk:**
+- provider differences may still leak into strategy path
+- streaming behavior may remain inconsistent
+- future self-hosted model migration becomes harder
+
+**Recommended Fix:**
+Complete P2 migration:
+- move strategy-generation routing into unified executor
+- support streaming-compatible execution variant
+- preserve domain guard, fallback, runtime validation, and tenant safety
+
+**Priority:** P1
+
+---
+
+### Issue 14: Model Evaluation Logging Not Yet Formalized
+**Location:** AI task execution / observability layer
+
+**Description:**
+Current system lacks a formal, persistent evaluation log for model routing quality across tasks.
+
+**Recommended Fix:**
+For each AI task, record:
+- task type
+- model
+- reasoning / non-reasoning
+- success / schema failure / fallback
+- latency
+- domain violation
+- output source
+
+**Priority:** P2

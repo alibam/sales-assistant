@@ -1,7 +1,7 @@
 /**
  * Task Executor - 统一任务执行器
  * 
- * 封装模型调用、schema 校验、异常处理、降级策略
+ * 封装模型调用、schema 校验、异常处理、降级策略、评估日志
  */
 
 import { generateText, generateObject } from 'ai';
@@ -9,6 +9,51 @@ import { z } from 'zod';
 import { getModel } from './model-registry';
 import { getModelCapabilities, type TaskType } from './model-capabilities';
 import { routeTask } from './task-router';
+
+/**
+ * 模型评估日志
+ */
+export interface ModelEvaluationLog {
+  /** 任务类型 */
+  taskType: TaskType;
+  
+  /** 使用的模型 */
+  model: string;
+  
+  /** 模型角色 */
+  role?: string;
+  
+  /** 是否使用 reasoning 模式 */
+  reasoning: boolean;
+  
+  /** 是否成功 */
+  success: boolean;
+  
+  /** 错误类型（如果失败） */
+  errorType?: 'schema' | 'provider' | 'timeout' | 'unsupported';
+  
+  /** 延迟（毫秒） */
+  latency: number;
+  
+  /** 是否有领域违规 */
+  domainViolation: boolean;
+  
+  /** 来源 */
+  source: 'primary' | 'fallback' | 'shadow';
+  
+  /** 时间戳 */
+  timestamp: number;
+}
+
+/**
+ * 记录模型评估日志
+ */
+function logModelEvaluation(log: ModelEvaluationLog): void {
+  console.log('[Model Evaluation]', JSON.stringify(log, null, 2));
+  
+  // TODO: 后续可以将日志发送到监控系统
+  // 例如：发送到 Prometheus、DataDog、或自建日志系统
+}
 
 /**
  * 统一返回协议
@@ -61,7 +106,9 @@ export async function executeTextTask(
   // 路由任务
   const routing = routeTask({ taskType, enableFallback, forceModel });
   
-  console.log(`[Task Executor] Task: ${taskType}, Primary Model: ${routing.primaryModel}`);
+  console.log(`[Task Executor] Task: ${taskType}, Primary Model: ${routing.primaryModel}, Role: ${routing.role}`);
+
+  const startTime = Date.now();
 
   // 尝试主模型
   try {
@@ -83,7 +130,22 @@ export async function executeTextTask(
       throw new Error('Model returned empty text');
     }
 
+    const latency = Date.now() - startTime;
+
     console.log(`[Task Executor] Success with primary model: ${routing.primaryModel}`);
+
+    // 记录评估日志
+    logModelEvaluation({
+      taskType,
+      model: routing.primaryModel,
+      role: routing.role,
+      reasoning: capabilities.supportsReasoning,
+      success: true,
+      latency,
+      domainViolation: false, // TODO: 需要实际检测
+      source: 'primary',
+      timestamp: Date.now(),
+    });
 
     return {
       ok: true,
@@ -92,13 +154,32 @@ export async function executeTextTask(
       model: routing.primaryModel,
     };
   } catch (error) {
+    const latency = Date.now() - startTime;
+    const capabilities = getModelCapabilities(routing.primaryModel);
+    
     console.error(`[Task Executor] Primary model failed:`, error);
+
+    // 记录失败日志
+    logModelEvaluation({
+      taskType,
+      model: routing.primaryModel,
+      role: routing.role,
+      reasoning: capabilities?.supportsReasoning || false,
+      success: false,
+      errorType: 'provider',
+      latency,
+      domainViolation: false,
+      source: 'primary',
+      timestamp: Date.now(),
+    });
 
     // 如果启用降级且有备用模型，尝试降级
     if (enableFallback && routing.fallbackModels.length > 0) {
       console.log(`[Task Executor] Trying fallback models:`, routing.fallbackModels);
 
       for (const fallbackModelId of routing.fallbackModels) {
+        const fallbackStartTime = Date.now();
+        
         try {
           const model = getModel(fallbackModelId);
           const result = await generateText({
@@ -108,7 +189,22 @@ export async function executeTextTask(
           });
 
           if (result.text && result.text.length > 0) {
+            const fallbackLatency = Date.now() - fallbackStartTime;
+            const fallbackCapabilities = getModelCapabilities(fallbackModelId);
+            
             console.log(`[Task Executor] Success with fallback model: ${fallbackModelId}`);
+
+            // 记录降级成功日志
+            logModelEvaluation({
+              taskType,
+              model: fallbackModelId,
+              reasoning: fallbackCapabilities?.supportsReasoning || false,
+              success: true,
+              latency: fallbackLatency,
+              domainViolation: false,
+              source: 'fallback',
+              timestamp: Date.now(),
+            });
 
             return {
               ok: true,
@@ -118,7 +214,24 @@ export async function executeTextTask(
             };
           }
         } catch (fallbackError) {
+          const fallbackLatency = Date.now() - fallbackStartTime;
+          const fallbackCapabilities = getModelCapabilities(fallbackModelId);
+          
           console.error(`[Task Executor] Fallback model ${fallbackModelId} failed:`, fallbackError);
+          
+          // 记录降级失败日志
+          logModelEvaluation({
+            taskType,
+            model: fallbackModelId,
+            reasoning: fallbackCapabilities?.supportsReasoning || false,
+            success: false,
+            errorType: 'provider',
+            latency: fallbackLatency,
+            domainViolation: false,
+            source: 'fallback',
+            timestamp: Date.now(),
+          });
+          
           continue;
         }
       }
