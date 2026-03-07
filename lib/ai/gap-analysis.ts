@@ -198,7 +198,23 @@ export async function analyzeCustomerInput(
     model: getAIModel(),
     prompt: `你是一个汽车4S店的AI销售助手。请从以下销售顾问的输入中，提取客户画像信息。
 
-💡 鼓励思考：请先在 <think>...</think> 标签内进行充分的逻辑推理（例如分析哪些是隐性线索、如何映射到字段）。思考结束后，你【必须】将最终的结构化结果放在一个 \`\`\`json 和 \`\`\` 包裹的代码块中返回！
+💡 鼓励思考：你可以先在 <think>...</think> 标签内进行充分的逻辑推理（可选）。最终，你【必须】将结构化结果放在一个 \`\`\`json 和 \`\`\` 包裹的代码块中返回！
+
+【示例输出格式】：
+\`\`\`json
+{
+  "scene": {
+    "usage_scenario": "家庭用车",
+    "key_motives": ["二胎", "空间需求"]
+  },
+  "preference": {
+    "intent_model": "豪华品牌 SUV"
+  },
+  "competitor": {
+    "competing_models": ["宝马X3"]
+  }
+}
+\`\`\`
 
 【你的核心身份与立场】
 你是一家奔驰 4S 店的数据分析中枢。
@@ -240,10 +256,7 @@ ${schemaString}
 销售顾问输入：
 ${input}
 
-请按照以下格式输出：
-<think>
-你的思考过程...
-</think>
+请按照以下格式输出（<think> 标签可选）：
 
 \`\`\`json
 {
@@ -255,21 +268,48 @@ ${input}
   });
 
   // 手动解析 JSON：从 ```json ... ``` 中提取
+  // 增加详细日志和更强的容错处理
+  console.log('[Gap Analysis] 模型原始输出（前 500 字符）:', text.substring(0, 500));
+  
   try {
-    const jsonBlockMatch = text.match(/```json\s*\n([\s\S]*?)\n```/);
-    let jsonString: string;
+    let jsonString: string | null = null;
 
+    // 尝试 1：从 ```json ... ``` 代码块中提取
+    const jsonBlockMatch = text.match(/```json\s*\n([\s\S]*?)\n```/);
     if (jsonBlockMatch) {
       jsonString = jsonBlockMatch[1].trim();
-    } else {
-      // 如果没有代码块，尝试直接提取 JSON 对象
+      console.log('[Gap Analysis] 从 ```json 代码块中提取到 JSON');
+    }
+
+    // 尝试 2：从 ``` ... ``` 代码块中提取（没有 json 标记）
+    if (!jsonString) {
+      const codeBlockMatch = text.match(/```\s*\n([\s\S]*?)\n```/);
+      if (codeBlockMatch) {
+        const content = codeBlockMatch[1].trim();
+        if (content.startsWith('{') && content.endsWith('}')) {
+          jsonString = content;
+          console.log('[Gap Analysis] 从 ``` 代码块中提取到 JSON');
+        }
+      }
+    }
+
+    // 尝试 3：直接提取 JSON 对象
+    if (!jsonString) {
       const jsonObjectMatch = text.match(/\{[\s\S]*\}/);
       if (jsonObjectMatch) {
         jsonString = jsonObjectMatch[0].trim();
-      } else {
-        throw new Error('无法从模型输出中提取 JSON');
+        console.log('[Gap Analysis] 直接从文本中提取到 JSON 对象');
       }
     }
+
+    // 如果所有尝试都失败
+    if (!jsonString) {
+      console.error('[Gap Analysis] JSON 提取失败');
+      console.error('[Gap Analysis] 原始文本:', text);
+      throw new Error('无法从模型输出中提取 JSON');
+    }
+
+    console.log('[Gap Analysis] 提取到的 JSON 字符串（前 200 字符）:', jsonString.substring(0, 200));
 
     // 🚨 排雷 1：清洗 JSON 字符串中的换行符，防止 Bad control character 崩溃
     // 大模型可能在 JSON 字符串值内输出未转义的换行符，导致 JSON.parse 崩溃
@@ -287,11 +327,15 @@ ${input}
     // 使用 Zod 进行类型安全校验
     const validatedProfile = customerProfileSchema.parse(parsedObject);
 
+    console.log('[Gap Analysis] JSON 解析成功');
     return validatedProfile as CustomerProfile;
   } catch (error) {
     console.error('[Gap Analysis] JSON 解析失败:', error);
     console.error('[Gap Analysis] 原始文本:', text);
-    throw new Error(`数据提取失败: ${error instanceof Error ? error.message : String(error)}\n原始文本: ${text ? text.substring(0, 500) : '(无文本输出)'}`);
+    
+    // ✅ Fallback 机制：返回空对象而不是抛出错误
+    console.warn('[Gap Analysis] 使用 fallback：返回空客户画像');
+    return {} as CustomerProfile;
   }
 }
 
